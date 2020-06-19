@@ -13,9 +13,9 @@ class Searcher:
     _batch = False
 
     _status = Status.EMPTY
-    _solutions = None
+    _solutions = None # TODO CHECK MEMORY
 
-    def __init__(self, model, batch = False, obj_func_key="obj_func"):
+    def __init__(self, model, batch=False, obj_func_key="obj_func"):
 
         self._model = model
         self._obj_func_key = obj_func_key
@@ -96,6 +96,8 @@ class Searcher:
             if lb is None:
                 self._status = Status.ERROR
                 return
+
+        # TODO: more results being saved
         gss_results = []
         a, b = self.__golden_section_search_recursive(self._model.run, lb, ub, gss_results, tol=p_tol)
         if a is None:
