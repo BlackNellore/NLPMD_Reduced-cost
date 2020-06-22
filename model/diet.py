@@ -7,7 +7,6 @@ import logging
 INPUT = {}
 OUTPUT = None
 
-
 class Diet:
     ds: data_handler.Data = None
 
@@ -29,7 +28,6 @@ class Diet:
     def run(self):
         logging.info("Iterating through scenarios")
         results = {}
-
         for scenario in data_scenario.values:
             parameters = dict(zip(headers_scenario, scenario))
             batch = False
@@ -72,7 +70,6 @@ class Diet:
             status, solution = optimizer.get_results()
             if status == Status.SOLVED:
                 results[parameters[headers_scenario.s_identifier]] = solution
-                # TODO: SALVAR OUTPUT DO CSV AQUI
             else:
                 logging.warning("Bad Status: {0}, {1}".format(status, parameters))
 
