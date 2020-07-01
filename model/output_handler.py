@@ -8,6 +8,10 @@ class Output:
 
     temp_names = []
 
+    def __init__(self):
+        # TODO: limpar arquivo antes de rodar
+        pass
+
     def save_as_csv(self, name="", solution=[]):
         """Save solution as a csv file"""
         keys = list(solution[0].keys())
