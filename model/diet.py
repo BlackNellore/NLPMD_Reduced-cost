@@ -9,8 +9,8 @@ import logging
 INPUT = {}
 OUTPUT = None
 
-class Diet:
 
+class Diet:
     _output = None
 
     ds: data_handler.Data = None
@@ -69,19 +69,20 @@ class Diet:
                     continue
                 logging.info(f'Optimizing with {msg}')
                 self.__single_scenario(optimizer, parameters, lb, ub, tol)
+                self.store_results(optimizer, parameters)
             else:
                 logging.info(f"Optimizing with multiobjective epsilon-constrained based on {msg}")
                 self.__multi_scenario(optimizer, parameters, lb, ub, tol)
 
-            logging.info("Saving solution locally")
-            status, solution = optimizer.get_results()
-            if status == Status.SOLVED:
-                _output.save_as_csv(name=str(parameters[headers_scenario.s_identifier]), solution=solution)
-            else:
-                logging.warning("Bad Status: {0}, {1}".format(status, parameters))
+        #            logging.info("Saving solution locally")
+        #            status, solution = optimizer.get_results()
+        #            if status == Status.SOLVED:
+        #                _output.save_as_csv(name=str(parameters[headers_scenario.s_identifier]), solution=solution)
+        #            else:
+        #                logging.warning("Bad Status: {0}, {1}".format(status, parameters))
 
-        logging.info("Exporting solution to {}".format(OUTPUT))
-        _output.store_output(OUTPUT)
+        #        logging.info("Exporting solution to {}".format(OUTPUT))
+        #        _output.store_output(OUTPUT)
 
         logging.info("END")
 
@@ -120,6 +121,17 @@ class Diet:
         for i in batch_space:
             optimizer.set_batch_params(i)
             self.__single_scenario(optimizer, parameters, lb, ub, tol)
+            self.store_results(optimizer, parameters)
+            optimizer.clear_searcher()
+
+    @staticmethod
+    def store_results(optimizer, parameters):
+        logging.info("Saving solution locally")
+        status, solution = optimizer.get_results()
+        if status == Status.SOLVED:
+            _output.save_as_csv(name=str(parameters[headers_scenario.s_identifier]), solution=solution)
+        else:
+            logging.warning("Bad Status: {0}, {1}".format(status, parameters))
 
 
 def config(input_info, output_info):

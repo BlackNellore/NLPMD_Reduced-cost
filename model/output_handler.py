@@ -19,16 +19,17 @@ class Output:
 
         path = self.temp_dir + name + ".csv"
 
-        with open(path, 'w+', newline='', encoding='utf-16') as file:
+        with open(path, "a+", newline='', encoding='utf-16') as file:
             writer = csv.writer(file)
-            writer.writerow(keys)
+            file.seek(0)
+            first_line = file.readline()
+            if len(first_line) == 0:
+                writer.writerow(keys)
             for line in values:
                 writer.writerow(line)
-
         return 0
 
     def store_output(self, filename="output.xlsx"):
-
         # open temp output and load all files to results_dict
         results_dict = {}
         for name in self.temp_names:
@@ -55,4 +56,24 @@ class Output:
 
 
 if __name__ == "__main__":
+
+    path = "teste.csv"
+
+    keys = ["key1", "key2", "key3"]
+
+    values = [[3, 3, 3, 3, 3],
+              [3, 3, 3, 3, 3],
+              [3, 3, 3, 3, 3]]
+
+    with open(path, "a+", newline='', encoding='utf-16') as file:
+        writer = csv.writer(file)
+
+        file.seek(0)
+        first_line = file.readline()
+        if len(first_line) == 0:
+            writer.writerow(keys)
+
+        for line in values:
+            writer.writerow(line)
+
     pass
