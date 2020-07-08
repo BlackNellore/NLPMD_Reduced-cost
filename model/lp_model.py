@@ -104,9 +104,9 @@ class Model:
         sol_rhs = dict(zip(["{}_rhs".format(constraint) for constraint in self.constraints_names],
                            diet.get_constraints_rhs(self.constraints_names)))
         sol_red_cost = dict(zip(["{}_red_cost".format(var) for var in diet.get_variable_names()],
-                                diet.get_dual_values()))
+                                diet.get_dual_reduced_costs())) #get dual values
         sol_dual = dict(zip(["{}_dual".format(const) for const in diet.get_constraints_names()],
-                            diet.get_dual_reduced_costs()))
+                            diet.get_dual_values())) # get dual reduced costs
         sol_slack = dict(zip(["{}_slack".format(const) for const in diet.get_constraints_names()],
                              diet.get_dual_linear_slacks()))
         sol_obj_cost = dict(zip(["{}_obj_cneg".format(var) for var in diet.get_variable_names()],
@@ -220,7 +220,7 @@ class Model:
                                self._p_nem, self.p_sbw, self.p_linearization_factor))
             self.revenue_obj_vector[i] = \
                 self.p_selling_price * swg[i]
-            self.expenditure_obj_vector[i] = self.cost_vector[i] * self._p_dmi
+            self.expenditure_obj_vector[i] = self.cost_obj_vector[i] * self._p_dmi #self.cost_vector[i] * self._p_dmi
         r = [self.revenue_obj_vector[i] - self.expenditure_obj_vector[i] for i in range(len(self.revenue_obj_vector))]
         if self.p_obj == "MaxProfit":
             for i in range(len(self.cost_vector)):

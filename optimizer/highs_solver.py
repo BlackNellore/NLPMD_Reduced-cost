@@ -368,10 +368,10 @@ class Model:
         return activity
 
     def get_dual_reduced_costs(self):
-        return list(self.solution.reduced_cost)
+        return list(self.solution.dual_variables) #list(self.solution.reduced_cost)
 
     def get_dual_values(self):
-        return list(self.solution.dual_variables)
+        return list(self.solution.reduced_cost) #list(self.solution.dual_variables)
 
     def get_dual_linear_slacks(self):
         slacks = []

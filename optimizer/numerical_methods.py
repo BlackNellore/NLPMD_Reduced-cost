@@ -201,8 +201,8 @@ class Searcher:
         return results[best_id[0]]
 
     def __clear_searcher(self, force_clear=False):
-        if force_clear or (not self._batch):
-            self._solutions.clear()
+        #if force_clear or (not self._batch):
+        self._solutions.clear()
         self._status = Status.READY
         self._model.prefix_id = self._msg
 

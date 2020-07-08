@@ -1,5 +1,7 @@
 from model import data_handler
 import pandas
+
+from model.output_handler import Output
 from model.lp_model import model_factory
 from optimizer.numerical_methods import Searcher, Status, Algorithms
 import logging
@@ -7,7 +9,10 @@ import logging
 INPUT = {}
 OUTPUT = None
 
+
 class Diet:
+    _output = None
+
     ds: data_handler.Data = None
 
     data_scenario: pandas.DataFrame = None  # Scenario
@@ -17,7 +22,8 @@ class Diet:
 
     @staticmethod
     def initialize(msg):
-        global ds, data_scenario, headers_scenario, data_batch, headers_batch
+        global _output, ds, data_scenario, headers_scenario, data_batch, headers_batch
+        _output = Output()
         ds = data_handler.Data(**INPUT)
         data_scenario = ds.data_scenario
         headers_scenario = ds.headers_scenario
@@ -29,6 +35,7 @@ class Diet:
         logging.info("Iterating through scenarios")
         results = {}
         for scenario in data_scenario.values:
+
             parameters = dict(zip(headers_scenario, scenario))
             batch = False
             if parameters[headers_scenario.s_batch] > 0:
@@ -62,19 +69,20 @@ class Diet:
                     continue
                 logging.info(f'Optimizing with {msg}')
                 self.__single_scenario(optimizer, parameters, lb, ub, tol)
+                self.store_results(optimizer, parameters)
             else:
                 logging.info(f"Optimizing with multiobjective epsilon-constrained based on {msg}")
                 self.__multi_scenario(optimizer, parameters, lb, ub, tol)
 
-            logging.info("Saving solution locally")
-            status, solution = optimizer.get_results()
-            if status == Status.SOLVED:
-                results[parameters[headers_scenario.s_identifier]] = solution
-            else:
-                logging.warning("Bad Status: {0}, {1}".format(status, parameters))
+        #            logging.info("Saving solution locally")
+        #            status, solution = optimizer.get_results()
+        #            if status == Status.SOLVED:
+        #                _output.save_as_csv(name=str(parameters[headers_scenario.s_identifier]), solution=solution)
+        #            else:
+        #                logging.warning("Bad Status: {0}, {1}".format(status, parameters))
 
-        logging.info("Exporting solution to {}".format(OUTPUT))
-        ds.store_output(results, OUTPUT)
+        #        logging.info("Exporting solution to {}".format(OUTPUT))
+        #        _output.store_output(OUTPUT)
 
         logging.info("END")
 
@@ -113,6 +121,17 @@ class Diet:
         for i in batch_space:
             optimizer.set_batch_params(i)
             self.__single_scenario(optimizer, parameters, lb, ub, tol)
+            self.store_results(optimizer, parameters)
+            optimizer.clear_searcher()
+
+    @staticmethod
+    def store_results(optimizer, parameters):
+        logging.info("Saving solution locally")
+        status, solution = optimizer.get_results()
+        if status == Status.SOLVED:
+            _output.save_as_csv(name=str(parameters[headers_scenario.s_identifier]), solution=solution)
+        else:
+            logging.warning("Bad Status: {0}, {1}".format(status, parameters))
 
 
 def config(input_info, output_info):
