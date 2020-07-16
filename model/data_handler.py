@@ -60,6 +60,7 @@ class Data:
         s_ub: str
         s_tol: str
         s_obj: str
+        s_find_reduced_cost: str
 
     # Sheet Feeds
     class ScenarioFeedProperties(NamedTuple):
@@ -447,7 +448,6 @@ class Data:
         if len(results_dict) == 0:
             logging.warning("NO SOLUTION FOUND, NOTHING TO BE SAVED")
             return
-
         for sheet_name in results_dict.keys():
             results = results_dict[sheet_name]
             if results is None or len(results) == 0:

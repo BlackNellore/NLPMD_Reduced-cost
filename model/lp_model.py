@@ -10,8 +10,11 @@ cnem_lb, cnem_ub = 0.8, 3
 bigM = 100000
 
 
-def model_factory(ds, parameters):
-    return Model(ds, parameters)
+def model_factory(ds, parameters, isShadowPrice=False):
+    if isShadowPrice:
+        return Model_ShadowPrice(ds, parameters)
+    else:
+        return Model(ds, parameters)
 
 
 class Model:
@@ -24,7 +27,7 @@ class Model:
     headers_scenario: data_handler.Data.ScenarioParameters = None  # Scenario
 
     p_id, p_feed_scenario, p_batch, p_breed, p_sbw, p_bcs, p_be, p_l, p_sex, p_a2, p_ph, p_selling_price, p_linearization_factor, \
-    p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_obj = [None for i in range(19)]
+    p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_obj, find_reduced_cost = [None for i in range(20)]
 
     _batch_map: dict = None
     # batch_map = {batch_ID:
@@ -134,11 +137,13 @@ class Model:
         if isinstance(parameters, dict):
             [self.p_id, self.p_feed_scenario, self.p_batch, self.p_breed, self.p_sbw, self.p_bcs, self.p_be, self.p_l,
              self.p_sex, self.p_a2, self.p_ph, self.p_selling_price, self.p_linearization_factor,
-             self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_obj] = parameters.values()
+             self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_obj,
+             self.find_reduced_cost] = parameters.values()
         elif isinstance(parameters, list):
             [self.p_id, self.p_feed_scenario, self.p_batch, self.p_breed, self.p_sbw, self.p_bcs, self.p_be, self.p_l,
              self.p_sex, self.p_a2, self.p_ph, self.p_selling_price, self.p_linearization_factor,
-             self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_obj] = parameters
+             self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_obj,
+             self.find_reduced_cost] = parameters
 
     def _cast_data(self, out_ds, parameters):
         """Retrieve parameters data from table. See data_handler.py for more"""
@@ -389,4 +394,14 @@ class Model:
                         self.data_feed_scenario[self.headers_feed_scenario.s_ID] == ing_id,
                         self.headers_feed_scenario.s_max
                     ] = vector[self.batch_execution_id]
+
+
+class Model_ShadowPrice(Model):
+    special_ingredient = None
+    special_cost = None
+
+    def _compute_parameters(self, problem_id):
+        Model._compute_parameters(self, problem_id)
+        self.cost_obj_vector[self.special_ingredient] = self.special_cost
+
 

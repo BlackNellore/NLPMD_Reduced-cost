@@ -106,6 +106,12 @@ class Diet:
     def __single_scenario(optimizer, parameters, lb, ub, tol):
         algorithm = Algorithms[parameters[headers_scenario.s_algorithm]]
         optimizer.run_scenario(algorithm, lb, ub, tol)
+        if parameters[headers_scenario.s_find_reduced_cost] > 0:
+            # TODO: passar funcao do numerical_methods.py
+            optimizer.search_shadow_price(algorithm, lb, ub, tol)
+        else:
+            pass
+
 
     def __multi_scenario(self, optimizer, parameters, lb, ub, tol):
         optimizer.clear_searcher(force=True)

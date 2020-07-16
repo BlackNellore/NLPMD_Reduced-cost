@@ -1,7 +1,7 @@
 import numpy as np
 from aenum import Enum
 import logging
-from model.lp_model import Model
+from model.lp_model import Model, Model_ShadowPrice
 
 Status = Enum('Status', 'EMPTY READY SOLVED ERROR')
 
@@ -205,6 +205,15 @@ class Searcher:
         self._solutions.clear()
         self._status = Status.READY
         self._model.prefix_id = self._msg
+
+    def search_shadow_price(self, algorithm, lb, ub, tol):
+        self._model: Model_ShadowPrice = self._model
+        costs = []
+        for c in costs:
+            self._model.special_ingredient = c
+            self._model.special_cost = 90
+            self.run()
+
 
 
 Algorithms = {'BF': 'brute_force_search', 'GSS': 'golden_section_search'}
