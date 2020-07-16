@@ -74,6 +74,8 @@ class Diet:
                 logging.info(f"Optimizing with multiobjective epsilon-constrained based on {msg}")
                 self.__multi_scenario(optimizer, parameters, lb, ub, tol)
 
+        _output.store()
+
         #            logging.info("Saving solution locally")
         #            status, solution = optimizer.get_results()
         #            if status == Status.SOLVED:
