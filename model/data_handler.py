@@ -46,6 +46,8 @@ class Data:
         s_batch: str
         s_breed: str
         s_sbw: str
+        s_feeding_time: str
+        s_target_weight: str
         s_bcs: str
         s_be: str
         s_l: str

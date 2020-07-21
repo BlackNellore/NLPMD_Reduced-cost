@@ -4,17 +4,27 @@ feed_keys = ['f_fat', 'f_CP', 'f_NDF', 'f_starch', 'f_sugars', 'f_oa']
 
 class NRC_eq:
     @staticmethod
-    def swg(v_cneg, v_dmi, cnem, v_nem, sbw, linear_factor):
+    def swg(neg, sbw, linear_factor):
         """ Shrunk Weight Gain """
-        return 13.91 * linear_factor * (v_dmi - v_nem/cnem) * v_cneg / np.power(sbw, 0.6836)
+        return 13.91 * linear_factor * neg / np.power(sbw, 0.6836)
 
     @staticmethod
-    def swg_const(v_dmi, cnem, v_nem, sbw, linear_factor):
-        """
-        DEBUG PURPOSES:
-        Constant parameter of SWG equation
-        """
-        return 13.91 * linear_factor * (v_dmi - v_nem / cnem) / np.power(sbw, 0.6836)
+    def cneg(cnem):
+        """ Concentration energy for growth """
+        return 0.8902 * cnem - 0.4359
+
+    @staticmethod
+    def neg(cneg, v_dmi, cnem, v_nem):
+        """ Net energy for growth """
+        return (v_dmi - v_nem/cnem) * cneg
+
+    # @staticmethod
+    # def swg_const(v_dmi, cnem, v_nem, sbw, linear_factor):
+    #     """
+    #     DEBUG PURPOSES:
+    #     Constant parameter of SWG equation
+    #     """
+    #     return 13.91 * linear_factor * (v_dmi - v_nem / cnem) / np.power(sbw, 0.6836)
 
     @staticmethod
     def dmi(cnem, sbw):
@@ -37,7 +47,7 @@ class NRC_eq:
         return NRC_eq.mpm(sbw), NRC_eq.dmi(cnem, sbw), NRC_eq.nem(sbw, bcs, be, l, sex, a2), NRC_eq.pe_ndf(ph_val)
 
     @staticmethod
-    def mp(p_dmi, p_tdn, p_cp, p_rup, p_forage, p_ee):
+    def mp(p_dmi=0, p_tdn=0, p_cp=0, p_rup=0, p_forage=0, p_ee=0):
         """Metabolizable Protein"""
         if p_dmi > 1:
             percentage = 0.01
