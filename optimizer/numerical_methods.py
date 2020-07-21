@@ -1,7 +1,8 @@
 import numpy as np
 from aenum import Enum
 import logging
-from model.lp_model import Model, Model_ShadowPrice
+from model.lp_model import Model, Model_ReducedCost
+from model.nrc_equations import NRC_eq as nrc
 
 Status = Enum('Status', 'EMPTY READY SOLVED ERROR')
 
@@ -33,7 +34,7 @@ class Searcher:
 
     def refine_bound(self, v0=0.0, vf=1.0, direction=1, tol=0.01):
         """Return feasible parameter vi in S = [v0, vf] or solution dict of S """
-        space = np.linspace(v0, vf, int(np.ceil((vf - v0) / tol)))
+        space = np.linspace(v0, vf, int(np.ceil((vf - v0 + tol) / tol)))
         if direction == -1:
             space = reversed(space)
         new_v = self.__brute_force(self._model.run, space, first_feasible=True)
@@ -152,11 +153,11 @@ class Searcher:
             raise(e)
             return None, None
 
-    def run_scenario(self, algorithm, lb, ub, tol):
-        self.__clear_searcher()
+    def run_scenario(self, algorithm, lb, ub, tol, uncertain_bounds = True, find_red_cost = False):
         self._msg = f"single objective lb={lb}, ub={ub}, algorithm={algorithm}"
-        sol_vec = getattr(self, algorithm)(lb, ub, tol)
-        status, solution = self.get_results(sol_vec, best=self._batch)
+        self.__clear_searcher()
+        sol_vec = getattr(self, algorithm)(lb, ub, tol, uncertain_bounds)
+        status, solution = self.get_results(sol_vec, best=(self._batch or find_red_cost))
         if status == Status.SOLVED:
             if self._batch:
                 self._solutions.append(solution)
@@ -206,15 +207,79 @@ class Searcher:
         self._status = Status.READY
         self._model.prefix_id = self._msg
 
-    def search_shadow_price(self, algorithm, lb, ub, tol):
-        self._model: Model_ShadowPrice = self._model
-        costs = []
-        for c in costs:
-            self._model.special_ingredient = c
-            self._model.special_cost = 90
-            self.run()
+    
+    def search_reduced_cost_recursive(self, algorithm, lb, ub, tol, lb_cost, ub_cost, tol_cost):
+        
+        if (ub_cost - lb_cost < tol_cost):
+            self._model.special_cost = lb_cost
+            self.run_scenario(algorithm, lb, ub, tol, uncertain_bounds = False, find_red_cost = True)
+            
+        else:
+            self.run_scenario(algorithm, lb, ub, tol, uncertain_bounds = False, find_red_cost = True)
+            
+            if self._batch:
+                sol = self._solutions.pop()
+            else:
+                sol = self._solutions
+            
+            var = sol["x" + str(self._model.special_id)]
 
+            if var > 0:
+                new_lb_cost = self._model.special_cost
+                self._model.special_cost = (new_lb_cost + ub_cost) / 2
+                self.search_reduced_cost_recursive(algorithm, lb, ub, tol, new_lb_cost, ub_cost, tol_cost)
+            else:
+                new_ub_cost = self._model.special_cost
+                self._model.special_cost = (lb_cost + new_ub_cost) / 2
+                self.search_reduced_cost_recursive(algorithm, lb, ub, tol, lb_cost, new_ub_cost, tol_cost)
+        
+        
+    
+    def search_reduced_cost(self, algorithm, lb, ub, tol):
+        
+        # TODO: encontrar preco em que o produto entra x% na dieta
+        
+        self._model.special_cost = 10.0
+        
+        tol_cost = 0.01
+        lb_cost = tol_cost
+        ub_cost = self._model.special_cost
+        self.run_scenario(algorithm, lb, ub, tol, uncertain_bounds = False, find_red_cost = True)
+        
+        if self._batch:
+            sol = self._solutions.pop()
+        else:
+            sol = self._solutions
+        
+        logging.debug(f"sol: {sol}")
+        var = sol["x" + str(self._model.special_id)]
+        
+        red_cost = sol["x" + str(self._model.special_id) + "_red_cost"] * self._model.dm_af_coversion[self._model.special_ingredient] / sol["DMI"]
+        logging.debug(f"red_cost: {red_cost}")
+        if self._model.p_obj == "MaxProfitSWG":
+            red_cost *= nrc.swg(self._model.neg_vector[self._model.special_ingredient], self._model._p_dmi, self._model._p_cnem,
+                               self._model._p_nem, self._model.p_sbw, self._model.p_linearization_factor)
+        
+        self._model.special_cost += red_cost
+    
+        if self._model.special_cost < tol_cost:
+            self._model.special_cost = 1.5 * tol_cost
+            
+        self.search_reduced_cost_recursive(algorithm, lb, ub, tol, lb_cost, ub_cost, tol_cost)
+        
+        if self._batch:
+            final_solution = self._solutions.pop()
+        else:
+            final_solution = self._solutions
+                
+        final_solution["x" + str(self._model.special_id) + "_price"] = self._model.special_cost
+        
+        if self._batch:
+            self._solutions.append(final_solution)
+        else:
+            self._solutions = [final_solution]
 
+        
 
 Algorithms = {'BF': 'brute_force_search', 'GSS': 'golden_section_search'}
 

@@ -45,7 +45,7 @@ class Diet:
             logging.info("{}".format(parameters))
 
             logging.info("Initializing model")
-            model = model_factory(ds, parameters)
+            model = model_factory(ds, parameters, parameters[headers_scenario.s_find_reduced_cost])
             logging.info("Initializing numerical methods")
             optimizer = Searcher(model, batch)
 
@@ -71,6 +71,10 @@ class Diet:
                 self.__single_scenario(optimizer, parameters, lb, ub, tol)
                 self.store_results(optimizer, parameters)
             else:
+                if list(ds.filter_column(data_batch, headers_batch.s_batch_id, parameters[headers_scenario.s_batch], int64=True)[headers_batch.s_only_costs_batch])[0]:
+                    lb, ub = self.refine_bounds(optimizer, parameters, batch)
+                    if lb is None:
+                        continue
                 logging.info(f"Optimizing with multiobjective epsilon-constrained based on {msg}")
                 self.__multi_scenario(optimizer, parameters, lb, ub, tol)
 
@@ -89,8 +93,10 @@ class Diet:
         logging.info("END")
 
     @staticmethod
-    def refine_bounds(optimizer, parameters):
+    def refine_bounds(optimizer, parameters, batch = False):
         logging.info("Refining bounds")
+        if batch:
+            optimizer.set_batch_params(0)
         lb, ub = optimizer.refine_bounds(parameters[headers_scenario.s_lb],
                                          parameters[headers_scenario.s_ub],
                                          parameters[headers_scenario.s_tol]
@@ -107,12 +113,10 @@ class Diet:
     @staticmethod
     def __single_scenario(optimizer, parameters, lb, ub, tol):
         algorithm = Algorithms[parameters[headers_scenario.s_algorithm]]
-        optimizer.run_scenario(algorithm, lb, ub, tol)
         if parameters[headers_scenario.s_find_reduced_cost] > 0:
-            # TODO: passar funcao do numerical_methods.py
-            optimizer.search_shadow_price(algorithm, lb, ub, tol)
+            optimizer.search_reduced_cost(algorithm, lb, ub, tol)
         else:
-            pass
+            optimizer.run_scenario(algorithm, lb, ub, tol)
 
 
     def __multi_scenario(self, optimizer, parameters, lb, ub, tol):

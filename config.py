@@ -92,8 +92,9 @@ INPUT_FILE = {'filename': {'name': 'input.xlsx'},
                                           'Filename',
                                           'Period col',
                                           'Initial Period',
-                                          'Final Period']}
+                                          'Final Period',
+                                          'Only Costs Batch']}
 
               }
 OUTPUT_FILE = 'output.xlsx'
-SOLVER = 'HiGHS'
+SOLVER = 'CPLEX'

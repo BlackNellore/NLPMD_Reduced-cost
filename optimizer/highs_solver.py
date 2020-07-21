@@ -368,8 +368,12 @@ class Model:
         return activity
 
     def get_dual_reduced_costs(self):
-        return list(self.solution.dual_variables) #list(self.solution.reduced_cost)
-
+        #return list(self.solution.dual_variables) #list(self.solution.reduced_cost)
+        red_costs = []
+        for i in range(len(self.solution.dual_variables)):
+            red_costs.append(- self.solution.dual_variables[i])
+        return red_costs
+        
     def get_dual_values(self):
         return list(self.solution.reduced_cost) #list(self.solution.dual_variables)
 

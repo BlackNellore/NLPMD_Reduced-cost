@@ -10,9 +10,9 @@ cnem_lb, cnem_ub = 0.8, 3
 bigM = 100000
 
 
-def model_factory(ds, parameters, isShadowPrice=False):
-    if isShadowPrice:
-        return Model_ShadowPrice(ds, parameters)
+def model_factory(ds, parameters, special_product = -1):
+    if special_product > 0:
+        return Model_ReducedCost(ds, parameters, special_product)
     else:
         return Model(ds, parameters)
 
@@ -201,7 +201,7 @@ class Model:
                 logging.warning(f"No Feed_scenario batch for scenario {self.p_id},"
                                 f" batch {self.p_batch}, feed_scenario{self.p_feed_scenario}")
                 batch_scenario = {}
-
+            
             self._batch_map = {"data_feed_scenario": batch_feed_scenario,
                                "data_scenario": batch_scenario}
 
@@ -248,7 +248,7 @@ class Model:
 
         diet = self._diet
         diet.set_sense(sense="max")
-
+              
         x_vars = list(diet.add_variables(obj=self.cost_obj_vector,
                                          lb=self.ds.sorted_column(self.data_feed_scenario,
                                                                   self.headers_feed_scenario.s_min,
@@ -375,11 +375,11 @@ class Model:
         # batch_map = {"data_feed_scenario": {Feed_id: {col_name: [list_from_batch_file]}}},
         #              "data_scenario": {col_name: [list_from_batch_file]}}
         #              }
-
+        
         for col_name, vector in self._batch_map["data_scenario"].items():
             self.scenario_parameters[col_name] = vector[self.batch_execution_id]
         self.__set_parameters(self.scenario_parameters)
-
+        
         for ing_id, data in self._batch_map["data_feed_scenario"].items():
             for col_name, vector in data.items():
                 if col_name == self.headers_feed_scenario.s_feed_cost:
@@ -394,14 +394,36 @@ class Model:
                         self.data_feed_scenario[self.headers_feed_scenario.s_ID] == ing_id,
                         self.headers_feed_scenario.s_max
                     ] = vector[self.batch_execution_id]
+        
 
-
-class Model_ShadowPrice(Model):
+class Model_ReducedCost(Model):    
+    
     special_ingredient = None
     special_cost = None
 
+    def __init__(self, out_ds, parameters, special_ingredient, special_cost = 10.0):
+        Model.__init__(self, out_ds, parameters)
+        self.special_id = special_ingredient
+        for i in range(len(self.ingredient_ids)):
+            if self.ingredient_ids[i] == self.special_id:
+                self.special_ingredient = i
+        self.special_cost = special_cost 
+
     def _compute_parameters(self, problem_id):
         Model._compute_parameters(self, problem_id)
-        self.cost_obj_vector[self.special_ingredient] = self.special_cost
-
-
+        
+        self.cost_obj_vector[self.special_ingredient] = self.special_cost/self.dm_af_coversion[self.special_ingredient]
+        self.expenditure_obj_vector[self.special_ingredient] = self.cost_obj_vector[self.special_ingredient] * self._p_dmi
+                
+        if self.p_obj == "MaxProfit":
+            self.cost_obj_vector[self.special_ingredient] = self.revenue_obj_vector[self.special_ingredient] - self.expenditure_obj_vector[self.special_ingredient]
+        elif self.p_obj == "MinCost":
+            self.cost_obj_vector[self.special_ingredient] = - self.expenditure_obj_vector[self.special_ingredient]
+        elif self.p_obj == "MaxProfitSWG":
+            swg = nrc.swg(self.neg_vector[self.special_ingredient], self._p_dmi, self._p_cnem,
+                               self._p_nem, self.p_sbw, self.p_linearization_factor)
+            if swg == 0:
+                swg = 1/bigM
+            
+            self.cost_obj_vector[self.special_ingredient] = (self.revenue_obj_vector[self.special_ingredient] - self.expenditure_obj_vector[self.special_ingredient])/swg
+        pass

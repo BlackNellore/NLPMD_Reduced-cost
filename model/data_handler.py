@@ -78,6 +78,7 @@ class Data:
         s_period_col: str
         s_initial_period: str
         s_final_period: str
+        s_only_costs_batch: str
 
     # Sheet Feed Library
     class IngredientProperties(NamedTuple):
@@ -479,5 +480,6 @@ if __name__ == "__main__":
     test_ds = Data(filename="../Input.xlsx",
                    sheet_feed_lib="Feed Library",
                    sheet_feeds="Feeds",
-                   sheet_scenario="Scenario"
+                   sheet_scenario="Scenario",
+                   sheet_batch = "Batch"
                    )
