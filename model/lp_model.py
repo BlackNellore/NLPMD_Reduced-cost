@@ -28,8 +28,8 @@ class Model:
     headers_scenario: data_handler.Data.ScenarioParameters = None  # Scenario
 
     p_id, p_feed_scenario, p_batch, p_breed, p_sbw, p_feed_time, p_target_weight, \
-    p_bcs, p_be, p_l, p_sex, p_a2, p_ph, p_selling_price, p_linearization_factor, \
-    p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_obj, find_reduced_cost = [None for i in range(22)]
+    p_bcs, p_be, p_l, p_sex, p_a2, p_ph, p_selling_price, \
+    p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_obj, find_reduced_cost = [None for i in range(21)]
 
     _batch_map: dict = None
     # batch_map = {batch_ID:
@@ -76,7 +76,9 @@ class Model:
             self._p_cnem = p_cnem
             if self.p_batch > 0:
                 self._setup_batch()
-            self._compute_parameters(p_id)
+            if not self._compute_parameters(p_id):
+                self._infeasible_output(p_id)
+                return None
             if self._diet is None:
                 self._build_model()
             else:
@@ -161,13 +163,13 @@ class Model:
         if isinstance(parameters, dict):
             [self.p_id, self.p_feed_scenario, self.p_batch, self.p_breed, self.p_sbw, self.p_feed_time,
              self.p_target_weight,self.p_bcs, self.p_be, self.p_l,
-             self.p_sex, self.p_a2, self.p_ph, self.p_selling_price, self.p_linearization_factor,
+             self.p_sex, self.p_a2, self.p_ph, self.p_selling_price,
              self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_obj,
              self.find_reduced_cost] = parameters.values()
         elif isinstance(parameters, list):
             [self.p_id, self.p_feed_scenario, self.p_batch, self.p_breed, self.p_sbw, self.p_feed_time,
              self.p_target_weight,self.p_bcs, self.p_be, self.p_l,
-             self.p_sex, self.p_a2, self.p_ph, self.p_selling_price, self.p_linearization_factor,
+             self.p_sex, self.p_a2, self.p_ph, self.p_selling_price,
              self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_obj,
              self.find_reduced_cost] = parameters
 
@@ -235,7 +237,9 @@ class Model:
 
         self._p_cneg = nrc.cneg(self._p_cnem)
         self._p_neg = nrc.neg(self._p_cneg, self._p_dmi, self._p_cnem, self._p_nem)
-        self._p_swg = nrc.swg(self._p_neg, self.p_sbw, self.p_linearization_factor)
+        if self._p_neg is None:
+            return False
+        self._p_swg = nrc.swg(self._p_neg, self.p_sbw)
         if math.isnan(self.p_feed_time) or self.p_feed_time == 0:
             self._model_feeding_time = (self.p_target_weight - self.p_sbw)/self._p_swg
             self._model_final_weight = self.p_target_weight
@@ -271,7 +275,7 @@ class Model:
             self.cst_obj = 0
 
         self.cost_obj_vector_mono = self.cost_obj_vector.copy()
-        pass
+        return True
 
     def _build_model(self):
         """Build model (initially based on CPLEX 12.8.1)"""

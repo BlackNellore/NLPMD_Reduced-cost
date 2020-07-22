@@ -4,9 +4,9 @@ feed_keys = ['f_fat', 'f_CP', 'f_NDF', 'f_starch', 'f_sugars', 'f_oa']
 
 class NRC_eq:
     @staticmethod
-    def swg(neg, sbw, linear_factor):
+    def swg(neg, sbw):
         """ Shrunk Weight Gain """
-        return 13.91 * linear_factor * neg / np.power(sbw, 0.6836)
+        return 13.91 * np.power(neg, 0.9116) / np.power(sbw, 0.6836)
 
     @staticmethod
     def cneg(cnem):
@@ -16,6 +16,8 @@ class NRC_eq:
     @staticmethod
     def neg(cneg, v_dmi, cnem, v_nem):
         """ Net energy for growth """
+        if (v_dmi - v_nem/cnem) < 0:
+            return None
         return (v_dmi - v_nem/cnem) * cneg
 
     # @staticmethod
