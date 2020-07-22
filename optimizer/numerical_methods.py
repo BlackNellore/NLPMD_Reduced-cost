@@ -2,7 +2,6 @@ import numpy as np
 from aenum import Enum
 import logging
 from model.lp_model import Model, Model_ReducedCost
-from model.nrc_equations import NRC_eq as nrc
 
 Status = Enum('Status', 'EMPTY READY SOLVED ERROR')
 
@@ -251,14 +250,12 @@ class Searcher:
         else:
             sol = self._solutions
         
-        logging.debug(f"sol: {sol}")
         var = sol["x" + str(self._model.special_id)]
         
-        red_cost = sol["x" + str(self._model.special_id) + "_red_cost"] * self._model.dm_af_coversion[self._model.special_ingredient] / sol["DMI"]
-        logging.debug(f"red_cost: {red_cost}")
-        if self._model.p_obj == "MaxProfitSWG":
-            red_cost *= nrc.swg(self._model.neg_vector[self._model.special_ingredient], self._model._p_dmi, self._model._p_cnem,
-                               self._model._p_nem, self._model.p_sbw, self._model.p_linearization_factor)
+        red_cost = sol["x" + str(self._model.special_id) + "_red_cost"] * self._model.dm_af_coversion[self._model.special_ingredient] / (sol["DMI"] * sol["Feeding Time"])
+        
+        if self._model.p_obj == "MaxProfitSWG" or self._model.p_obj == "MinCostSWG":
+            red_cost *= self._model._p_swg
         
         self._model.special_cost += red_cost
     
