@@ -205,8 +205,8 @@ class Model:
         self.dm_af_coversion = self.ds.sorted_column(self.data_feed_lib, self.headers_feed_lib.s_DM,
                                                 self.ingredient_ids,
                                                 self.headers_feed_lib.s_ID)
-        for i in range(len(self.cost_vector)):
-            self.cost_vector[i] /= self.dm_af_coversion[i]
+#         for i in range(len(self.cost_vector)):
+#             self.cost_vector[i] /= self.dm_af_coversion[i]
 
         if self.p_batch > 0:
             try:
@@ -220,8 +220,8 @@ class Model:
                 batch_scenario = self.ds.batch_map[self.p_id]["data_scenario"][self.p_id]
                 # {col_name: [list_from_batch_file]}}
             except KeyError:
-                logging.warning(f"No Feed_scenario batch for scenario {self.p_id},"
-                                f" batch {self.p_batch}, feed_scenario{self.p_feed_scenario}")
+                logging.warning(f"No Scenario batch for scenario {self.p_id},"
+                                f" batch {self.p_batch}, scenario{self.p_feed_scenario}")
                 batch_scenario = {}
 
             self._batch_map = {"data_feed_scenario": batch_feed_scenario,
@@ -249,6 +249,9 @@ class Model:
             raise Exception("target weight and feeding time cannot be defined at the same time")
 
         self.cost_obj_vector = self.cost_vector.copy()
+        for i in range(len(self.cost_obj_vector)):
+            self.cost_obj_vector[i] /= self.dm_af_coversion[i]
+            
         self.revenue = self.p_selling_price * (self.p_sbw + self._p_swg * self._model_feeding_time)
         # self.revenue_obj_vector = self.cost_vector.copy()
         self.expenditure_obj_vector = self.cost_vector.copy()
@@ -266,14 +269,14 @@ class Model:
             self.cst_obj = 0
         elif self.p_obj == "MaxProfitSWG":
             for i in range(len(self.cost_vector)):
-                self.cost_obj_vector[i] = -self.expenditure_obj_vector[i]/self._p_swg
+                self.cost_obj_vector[i] = -(self.expenditure_obj_vector[i])/self._p_swg
             self.cst_obj = self.revenue/self._p_swg
         elif self.p_obj == "MinCostSWG":
             for i in range(len(self.cost_vector)):
                 self.cost_obj_vector[i] = -(self.expenditure_obj_vector[i])/self._p_swg
             self.cst_obj = 0
 
-        self.cost_obj_vector_mono = self.cost_obj_vector.copy()
+#         self.cost_obj_vector_mono = self.cost_obj_vector.copy()
         return True
 
     def _build_model(self):
@@ -458,62 +461,10 @@ class Model_ReducedCost(Model):
             if self.p_obj == "MaxProfit" or self.p_obj == "MinCost":
                 self.cost_obj_vector[self.special_ingredient] = - self.expenditure_obj_vector[self.special_ingredient]   
             elif self.p_obj == "MaxProfitSWG" or self.p_obj == "MinCostSWG":
-                self.cost_obj_vector[i] = -self.expenditure_obj_vector[self.special_ingredient]/self._p_swg
+                self.cost_obj_vector[self.special_ingredient] = -(self.expenditure_obj_vector[self.special_ingredient])/self._p_swg
 
-            self.cost_obj_vector_mono = self.cost_obj_vector.copy()
+#             self.cost_obj_vector_mono = self.cost_obj_vector.copy()
             
             return True
         
-        
-# class Model_ReducedCost(Model):
 
-#     special_ingredient = None
-#     special_cost = None
-
-#     def __init__(self, out_ds, parameters, special_ingredient, special_cost = 10.0):
-#         Model.__init__(self, out_ds, parameters)
-#         self.special_id = special_ingredient
-#         for i in range(len(self.ingredient_ids)):
-#             if self.ingredient_ids[i] == self.special_id:
-#                 self.special_ingredient = i
-#         self.special_cost = special_cost
-
-#     def _compute_parameters(self, problem_id):
-#         Model._compute_parameters(self, problem_id)
-
-#         self.cost_obj_vector[self.special_ingredient] = self.special_cost/self.dm_af_coversion[self.special_ingredient]
-#         self.expenditure_obj_vector[self.special_ingredient] = self.cost_obj_vector[self.special_ingredient] * self._p_dmi
-
-#         # if self.p_obj == "MaxProfit":
-#         #     self.cost_obj_vector[self.special_ingredient] = self.revenue_obj_vector[self.special_ingredient] - self.expenditure_obj_vector[self.special_ingredient]
-#         # elif self.p_obj == "MinCost":
-#         #     self.cost_obj_vector[self.special_ingredient] = - self.expenditure_obj_vector[self.special_ingredient]
-#         # elif self.p_obj == "MaxProfitSWG":
-#         #     swg = nrc.swg(self.neg_vector[self.special_ingredient], self._p_dmi, self._p_cnem,
-#         #                   self._p_nem, self.p_sbw, self.p_linearization_factor)
-#         #     if swg == 0:
-#         #         swg = 1/bigM
-#         #
-#         #     self.cost_obj_vector[self.special_ingredient] = (self.revenue_obj_vector[self.special_ingredient] - self.expenditure_obj_vector[self.special_ingredient])/swg
-
-#         if self.p_obj == "MaxProfit":
-#             for i in range(len(self.cost_vector)):
-#                 self.cost_obj_vector[i] = - self.expenditure_obj_vector[i]
-#             self.cst_obj = self.revenue
-#         elif self.p_obj == "MinCost":
-#             for i in range(len(self.cost_vector)):
-#                 self.cost_obj_vector[i] = - self.expenditure_obj_vector[i]
-#             self.cst_obj = 0
-#         elif self.p_obj == "MaxProfitSWG":
-#             for i in range(len(self.cost_vector)):
-#                 self.cost_obj_vector[i] = -self.expenditure_obj_vector[i]/self._p_swg
-#             self.cst_obj = self.revenue/self._p_swg
-#         elif self.p_obj == "MinCostSWG":
-#             for i in range(len(self.cost_vector)):
-#                 self.cost_obj_vector[i] = -(self.expenditure_obj_vector[i])/self._p_swg
-#             self.cst_obj = 0
-
-#         self.cost_obj_vector_mono = self.cost_obj_vector.copy()
-
-
-#         pass
