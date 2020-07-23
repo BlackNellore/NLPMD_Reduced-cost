@@ -116,10 +116,9 @@ class Model:
         sol = dict(zip(diet.get_variable_names(), diet.get_solution_vec()))
         sol["obj_func"] = diet.get_solution_obj()
         sol["obj_cost"] = 0
-        sol["obj_revenue"] = 0
+        sol["obj_revenue"] = self.revenue
         for i in range(len(self._var_names_x)):
             sol["obj_cost"] += diet.get_solution_vec()[i] * self.expenditure_obj_vector[i]
-            # sol["obj_revenue"] += diet.get_solution_vec()[i] * self.revenue_obj_vector[i]
 
         params = self._get_params(self._p_swg)
         sol_activity = dict(zip(["{}_act".format(constraint) for constraint in self.constraints_names],
