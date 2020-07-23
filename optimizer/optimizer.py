@@ -136,7 +136,7 @@ class Optimizer:
         elif SOLVER == "HiGHS":
             self.model.set_constraint_coefficients(seq_of_triplets)
 
-    def set_objective_function(self, objective_vector):
+    def set_objective_function(self, objective_vector, offset=0):
         """
         :param objective_vector: list with floats
         """
@@ -145,6 +145,8 @@ class Optimizer:
             self.model.objective.set_linear(objective_vector)
         elif SOLVER == "HiGHS":
             self.model.set_objective_function(objective_vector)
+
+        self.set_obj_offset(offset)
 
     # AUXILIARY FUNCTIONS
 

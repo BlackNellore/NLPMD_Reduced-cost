@@ -403,7 +403,10 @@ class Model:
 
         seq_of_pairs = tuple(zip(new_rhs.keys(), new_rhs.values()))
         self._diet.set_constraint_rhs(seq_of_pairs)
-        self._diet.set_objective_function(list(zip(self._var_names_x, self.cost_obj_vector)))
+
+        self._diet.set_objective_function(list(zip(self._var_names_x, self.cost_obj_vector)), self.cst_obj)
+
+        # TODO deve ta aqui o erro
 
     def set_batch_params(self, i):
         self.batch_execution_id = i
