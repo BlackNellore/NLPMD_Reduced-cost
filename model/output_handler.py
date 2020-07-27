@@ -9,6 +9,11 @@ class Output:
     temp_dir = "model/temp_output/"
 
     def __init__(self):
+
+        if not os.path.exists(self.temp_dir):
+            os.mkdir(self.temp_dir)
+
+
         self.delete_all_files_in(self.temp_dir)
         pass
 
@@ -22,6 +27,10 @@ class Output:
 
         # create a new folder in /Output/ and name it YYYY_MM_DD_HHMMSS
         dirName = './Output/'
+
+        if not os.path.exists(dirName):
+            os.mkdir(dirName)
+
         now = datetime.now()
         now = now.strftime("%Y_%m_%d_%H%M%S")
         dirName = dirName + now
@@ -85,4 +94,8 @@ class Output:
 
 
 if __name__ == "__main__":
+
+    if not os.path.exists("../Output"):
+        os.makedirs("../Output")
+
     pass

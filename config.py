@@ -98,4 +98,4 @@ INPUT_FILE = {'filename': {'name': 'input.xlsx'},
 
               }
 OUTPUT_FILE = 'output.xlsx'
-SOLVER = 'CPLEX'
+SOLVER = 'HiGHS'
