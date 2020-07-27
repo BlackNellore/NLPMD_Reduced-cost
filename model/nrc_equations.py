@@ -2,20 +2,30 @@ import numpy as np
 
 feed_keys = ['f_fat', 'f_CP', 'f_NDF', 'f_starch', 'f_sugars', 'f_oa']
 
+
 class NRC_eq:
+
     @staticmethod
     def swg(neg, sbw):
         """ Shrunk Weight Gain """
+        NRC_eq.test_negative_values('swg', neg=neg,sbw=sbw)
         return 13.91 * np.power(neg, 0.9116) / np.power(sbw, 0.6836)
 
     @staticmethod
     def cneg(cnem):
         """ Concentration energy for growth """
+        if isinstance(cnem, dict):
+            cnem = cnem['cnem']
+        NRC_eq.test_negative_values('cneg', cnem=cnem)
         return 0.8902 * cnem - 0.4359
 
     @staticmethod
     def neg(cneg, v_dmi, cnem, v_nem):
         """ Net energy for growth """
+        NRC_eq.test_negative_values('neg', cneg=cneg,
+                                    v_dmi=v_dmi,
+                                    cnem=cnem,
+                                    v_nem=v_nem)
         if (v_dmi - v_nem/cnem) < 0:
             return None
         return (v_dmi - v_nem/cnem) * cneg
@@ -31,16 +41,26 @@ class NRC_eq:
     @staticmethod
     def dmi(cnem, sbw):
         """ Dry Matter Intake """
+        NRC_eq.test_negative_values('dmi', cnem=cnem, sbw=sbw)
         return 0.007259 * sbw * (1.71167 + 2.64747 * cnem - np.power(cnem, 2))
 
     @staticmethod
     def mpm(sbw):
         """ Metabolizable Protein for Maintenance """
+        if isinstance(sbw, dict):
+            sbw = sbw['sbw']
+        NRC_eq.test_negative_values('mpm', sbw=sbw)
         return 3.8 * np.power(sbw, 0.75)
 
     @staticmethod
     def nem(sbw, bcs, be, l, sex, a2):
         """ Net Energy for Maintenance """
+        NRC_eq.test_negative_values('nem', sbw=sbw,
+                                    bcs=bcs,
+                                    be=be,
+                                    l=l,
+                                    sex=sex,
+                                    a2=a2)
         return np.power(sbw, 0.75) * (0.077 * be * l * (0.8 + 0.05 * (bcs-1) * sex + a2))
 
     @staticmethod
@@ -51,6 +71,12 @@ class NRC_eq:
     @staticmethod
     def mp(p_dmi=0, p_tdn=0, p_cp=0, p_rup=0, p_forage=0, p_ee=0):
         """Metabolizable Protein"""
+        NRC_eq.test_negative_values('mp', p_dmi=p_dmi,
+                                    p_tdn=p_tdn,
+                                    p_cp=p_cp,
+                                    p_rup=p_rup,
+                                    p_forage=p_forage,
+                                    p_ee=p_ee)
         if p_dmi > 1:
             percentage = 0.01
         else:
@@ -81,7 +107,28 @@ class NRC_eq:
     @staticmethod
     def pe_ndf(ph_val):
         """Physically Effective Non-Detergent Fiber"""
+        if isinstance(ph_val, dict):
+            ph_val = ph_val['ph_val']
+        NRC_eq.test_negative_values('pe_ndf', ph_val=ph_val)
         return 0.01 * (ph_val - 5.46)/0.038
+
+    @staticmethod
+    def test_negative_values(func_name, **kwargs):
+        # print([v for k, v in kwargs.items()])
+        aux_vals = []
+        for k, v in kwargs.items():
+            if isinstance(v, tuple) or isinstance(v, list):
+                aux_vals.append(v[0])
+            else:
+                aux_vals.append(v)
+        if any([v < 0.0 for v in aux_vals]):
+            msg = f'negative values parsed into equation {func_name}: '
+            for k, v in kwargs.items():
+                if isinstance(v, tuple):
+                    v = v[0]
+                if v < 0:
+                    msg = msg + f'<{k}, {v}>'
+            raise ValueError(msg)
 
 
 if __name__ == "__main__":
