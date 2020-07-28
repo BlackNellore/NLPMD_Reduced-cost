@@ -46,6 +46,8 @@ class Data:
         s_batch: str
         s_breed: str
         s_sbw: str
+        s_feeding_time: str
+        s_target_weight: str
         s_bcs: str
         s_be: str
         s_l: str
@@ -53,13 +55,13 @@ class Data:
         s_a2: str
         s_ph: str
         s_price: str
-        s_linear_factor: str
         s_algorithm: str
         s_identifier: str
         s_lb: str
         s_ub: str
         s_tol: str
         s_obj: str
+        s_find_reduced_cost: str
 
     # Sheet Feeds
     class ScenarioFeedProperties(NamedTuple):
@@ -77,6 +79,7 @@ class Data:
         s_period_col: str
         s_initial_period: str
         s_final_period: str
+        s_only_costs_batch: str
 
     # Sheet Feed Library
     class IngredientProperties(NamedTuple):
@@ -478,5 +481,6 @@ if __name__ == "__main__":
     test_ds = Data(filename="../Input.xlsx",
                    sheet_feed_lib="Feed Library",
                    sheet_feeds="Feeds",
-                   sheet_scenario="Scenario"
+                   sheet_scenario="Scenario",
+                   sheet_batch = "Batch"
                    )

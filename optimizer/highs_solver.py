@@ -100,6 +100,14 @@ def highs_call(colcost, collower, colupper, rowlower, rowupper, astart, aindex, 
     row_dual = dbl_array_type_row(*row_dual)
     col_basis = int_array_type_col(*col_basis)
     row_basis = int_array_type_row(*row_basis)
+    logging.info(f"colcost=[{colcost}\n"
+                 f"collower={collower}\n"
+                 f"colupper={colupper}\n"
+                 f"rowlower={rowlower}\n"
+                 f"rowupper={rowupper}\n"
+                 f"astart={astart}\n"
+                 f"aindex={aindex}\n"
+                 f"avalue={avalue}\n")
     try:
         retcode = highslib.Highs_call(
             ctypes.c_int(n_col), ctypes.c_int(n_row), ctypes.c_int(n_nz),
@@ -109,9 +117,10 @@ def highs_call(colcost, collower, colupper, rowlower, rowupper, astart, aindex, 
             col_value, col_dual,
             row_value, row_dual,
             col_basis, row_basis, ctypes.byref(ctypes.c_int(return_val)))
+        print(retcode)
     except Exception as e:
         if "writing" in e.args[0]:
-            logging.error("A serious error occurred when executing HiGHS, probably infeasible: {}".format(str(e)))
+            logging.error("A serious error occurred when executing HiGHS: {}".format(str(e)))
         else:
             logging.error("An error occurred when executing HiGHS, probably infeasible: {}".format(str(e)))
         return None
@@ -169,6 +178,7 @@ class Model:
     rev_cs_map = {}
     solution = None
     sense, variables, constraints, var_lb, var_ub = [None for j in range(5)]
+    objective_offset = 0
 
     def __init__(self):
         self.variables = {}
@@ -315,6 +325,11 @@ class Model:
             val = triplet[2]
             self.constraints[cst]["coefficients"][index] = val
 
+    def set_objective_offset(self, val):
+        self.objective_offset = val
+
+    def get_objective_offset(self):
+        return self.objective_offset
 
     def set_objective_function(self, obj_vec):
         names = list(self.variables.keys())
@@ -359,7 +374,7 @@ class Model:
         return list(self.solution.variables.values())
 
     def get_solution_obj(self):
-        return self.solution.opt_objective * self.sense
+        return self.solution.opt_objective * self.sense + self.objective_offset
 
     def get_solution_activity_levels(self, constraints):
         activity = []
@@ -368,8 +383,12 @@ class Model:
         return activity
 
     def get_dual_reduced_costs(self):
-        return list(self.solution.dual_variables) #list(self.solution.reduced_cost)
-
+        #return list(self.solution.dual_variables) #list(self.solution.reduced_cost)
+        red_costs = []
+        for i in range(len(self.solution.dual_variables)):
+            red_costs.append(- self.solution.dual_variables[i])
+        return red_costs
+        
     def get_dual_values(self):
         return list(self.solution.reduced_cost) #list(self.solution.dual_variables)
 
