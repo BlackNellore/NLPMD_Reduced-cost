@@ -37,6 +37,8 @@ class Diet:
         for scenario in data_scenario.values:
 
             parameters = dict(zip(headers_scenario, scenario))
+            if parameters[headers_scenario.s_id] < 0:
+                continue
             batch = False
             if parameters[headers_scenario.s_batch] > 0:
                 batch = True
