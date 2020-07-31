@@ -232,7 +232,7 @@ class Model:
         """Compute parameters variable with CNEm"""
         self._p_mpm, self._p_dmi, self._p_nem, self._p_pe_ndf = \
             nrc.get_all_parameters(self._p_cnem, self.p_sbw, self.p_bcs,
-                                   self.p_be, self.p_l, self.p_sex, self.p_a2, self.p_ph)
+                                   self.p_be, self.p_l, self.p_sex, self.p_a2, self.p_ph, self.p_target_weight)
 
         self._p_cneg = nrc.cneg(self._p_cnem)
         self._p_neg = nrc.neg(self._p_cneg, self._p_dmi, self._p_cnem, self._p_nem)
