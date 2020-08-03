@@ -60,6 +60,7 @@ class Data:
         s_lb: str
         s_ub: str
         s_tol: str
+        s_dmi_eq: str
         s_obj: str
         s_find_reduced_cost: str
 

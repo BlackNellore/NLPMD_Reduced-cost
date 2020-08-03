@@ -29,7 +29,7 @@ class Model:
 
     p_id, p_feed_scenario, p_batch, p_breed, p_sbw, p_feed_time, p_target_weight, \
     p_bcs, p_be, p_l, p_sex, p_a2, p_ph, p_selling_price, \
-    p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_obj, find_reduced_cost = [None for i in range(21)]
+    p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_dmi_eq, p_obj, find_reduced_cost = [None for i in range(22)]
 
     _batch_map: dict = None
     # batch_map = {batch_ID:
@@ -163,7 +163,7 @@ class Model:
             [self.p_id, self.p_feed_scenario, self.p_batch, self.p_breed, self.p_sbw, self.p_feed_time,
              self.p_target_weight,self.p_bcs, self.p_be, self.p_l,
              self.p_sex, self.p_a2, self.p_ph, self.p_selling_price,
-             self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_obj,
+             self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_dmi_eq, self.p_obj,
              self.find_reduced_cost] = parameters.values()
         elif isinstance(parameters, list):
             [self.p_id, self.p_feed_scenario, self.p_batch, self.p_breed, self.p_sbw, self.p_feed_time,
@@ -232,7 +232,7 @@ class Model:
         """Compute parameters variable with CNEm"""
         self._p_mpm, self._p_dmi, self._p_nem, self._p_pe_ndf = \
             nrc.get_all_parameters(self._p_cnem, self.p_sbw, self.p_bcs,
-                                   self.p_be, self.p_l, self.p_sex, self.p_a2, self.p_ph, self.p_target_weight)
+                                   self.p_be, self.p_l, self.p_sex, self.p_a2, self.p_ph, self.p_target_weight, self.p_dmi_eq)
 
         self._p_cneg = nrc.cneg(self._p_cnem)
         self._p_neg = nrc.neg(self._p_cneg, self._p_dmi, self._p_cnem, self._p_nem)
