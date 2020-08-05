@@ -49,7 +49,9 @@ INPUT_FILE = {'filename': {'name': 'input.xlsx'},
                                              'Tol',
                                              'DMI Equation',
                                              'Obj',
-                                             'Find Reduced Cost']},
+                                             'Find Reduced Cost',
+                                             'Ingredient Lower',
+                                             'Ingredient Upper']},
               'sheet_batch': {'name': 'Batch',
                               'headers': ['Batch ID',
                                           'Filename',
@@ -60,4 +62,4 @@ INPUT_FILE = {'filename': {'name': 'input.xlsx'},
 
               }
 OUTPUT_FILE = 'output.xlsx'
-SOLVER = 'HiGHS'
+SOLVER = 'CPLEX'

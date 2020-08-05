@@ -63,6 +63,8 @@ class Data:
         s_dmi_eq: str
         s_obj: str
         s_find_reduced_cost: str
+        s_ing_lb: str
+        s_ing_ub: str
 
     # Sheet Feeds
     class ScenarioFeedProperties(NamedTuple):
