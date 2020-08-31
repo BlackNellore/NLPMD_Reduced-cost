@@ -29,7 +29,7 @@ class Model:
 
     p_id, p_feed_scenario, p_batch, p_breed, p_sbw, p_feed_time, p_target_weight, \
     p_bcs, p_be, p_l, p_sex, p_a2, p_ph, p_selling_price, \
-    p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_dmi_eq, p_obj, p_find_reduced_cost, p_ing_lb, p_ing_ub = [None for i in range(24)]
+    p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_dmi_eq, p_obj, p_find_reduced_cost, p_ing_level = [None for i in range(23)]
 
     _batch_map: dict = None
     # batch_map = {batch_ID:
@@ -164,7 +164,7 @@ class Model:
              self.p_target_weight,self.p_bcs, self.p_be, self.p_l,
              self.p_sex, self.p_a2, self.p_ph, self.p_selling_price,
              self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_dmi_eq, self.p_obj,
-             self.p_find_reduced_cost, self.p_ing_lb, self.p_ing_ub] = parameters.values()
+             self.p_find_reduced_cost, self.p_ing_level] = parameters.values()
         elif isinstance(parameters, list):
             [self.p_id, self.p_feed_scenario, self.p_batch, self.p_breed, self.p_sbw, self.p_feed_time,
              self.p_target_weight,self.p_bcs, self.p_be, self.p_l,
@@ -259,7 +259,7 @@ class Model:
         self.expenditure_obj_vector = self.cost_vector.copy()
         for i in range(len(self.cost_vector)):
             # self.revenue_obj_vector[i] = self.p_selling_price * (self.p_sbw + self._p_swg * self._model_feeding_time)
-            self.expenditure_obj_vector[i] = self.cost_vector[i] * self._p_dmi * self._model_feeding_time
+            self.expenditure_obj_vector[i] = self.cost_obj_vector[i] * self._p_dmi * self._model_feeding_time
         # r = [self.revenue_obj_vector[i] - self.expenditure_obj_vector[i] for i in range(len(self.revenue_obj_vector))]
         if self.p_obj == "MaxProfit":
             for i in range(len(self.cost_vector)):

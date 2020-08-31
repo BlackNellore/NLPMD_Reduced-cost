@@ -116,7 +116,7 @@ class Diet:
     def __single_scenario(optimizer, parameters, lb, ub, tol):
         algorithm = Algorithms[parameters[headers_scenario.s_algorithm]]
         if parameters[headers_scenario.s_find_reduced_cost] > 0:
-            optimizer.search_reduced_cost(algorithm, lb, ub, tol, parameters[headers_scenario.s_ing_lb], parameters[headers_scenario.s_ing_ub])
+            optimizer.search_reduced_cost(algorithm, lb, ub, tol, parameters[headers_scenario.s_ing_level])
         else:
             optimizer.run_scenario(algorithm, lb, ub, tol)
 

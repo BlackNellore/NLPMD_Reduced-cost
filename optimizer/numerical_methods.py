@@ -207,9 +207,11 @@ class Searcher:
         self._model.prefix_id = self._msg
 
     
-    def search_reduced_cost_recursive(self, algorithm, lb, ub, tol, lb_cost, ub_cost, tol_cost, ing_lb, ing_ub):
+    def search_reduced_cost_recursive(self, algorithm, lb, ub, tol, lb_cost, ub_cost, tol_cost, ing_level):
         
-        if (ub_cost - lb_cost < tol_cost):
+        logging.debug(f"lb_cost: {lb_cost}, ub_cost: {ub_cost}, cost: {self._model.special_cost}")
+        
+        if (ub_cost - lb_cost <= tol_cost):
             self._model.special_cost = lb_cost
             self.run_scenario(algorithm, lb, ub, tol, uncertain_bounds = False, find_red_cost = True)
         else:
@@ -221,15 +223,17 @@ class Searcher:
                 sol = self._solutions
             
             var = sol["x" + str(self._model.special_id)]
-
-            if var > ing_ub:
+            logging.debug(f"sol:{sol}")
+            if var > ing_level:
                 new_lb_cost = self._model.special_cost
                 self._model.special_cost = (new_lb_cost + ub_cost) / 2
-                self.search_reduced_cost_recursive(algorithm, lb, ub, tol, new_lb_cost, ub_cost, tol_cost, ing_lb, ing_ub)
-            elif var < ing_lb:
+                #self._model.special_cost -= self._model.special_cost % tol_cost
+                self.search_reduced_cost_recursive(algorithm, lb, ub, tol, new_lb_cost, ub_cost, tol_cost, ing_level)
+            elif var < ing_level:
                 new_ub_cost = self._model.special_cost
                 self._model.special_cost = (lb_cost + new_ub_cost) / 2
-                self.search_reduced_cost_recursive(algorithm, lb, ub, tol, lb_cost, new_ub_cost, tol_cost, ing_lb, ing_ub)
+                #self._model.special_cost -= self._model.special_cost % tol_cost
+                self.search_reduced_cost_recursive(algorithm, lb, ub, tol, lb_cost, new_ub_cost, tol_cost, ing_level)
             else:
                 if self._batch:
                     self._solutions.append(sol)
@@ -237,15 +241,12 @@ class Searcher:
         
         
     
-    def search_reduced_cost(self, algorithm, lb, ub, tol, ing_lb, ing_ub):
-        
-        # TODO: encontrar preco em que o produto entra x% na dieta
-        
-        self._model.special_cost = 10.0
+    def search_reduced_cost(self, algorithm, lb, ub, tol, ing_level):
         
         tol_cost = 0.01
-        lb_cost = tol_cost
-        ub_cost = self._model.special_cost
+        
+        self._model.special_cost = tol_cost
+          
         self.run_scenario(algorithm, lb, ub, tol, uncertain_bounds = False, find_red_cost = True)
         
         if self._batch:
@@ -255,17 +256,33 @@ class Searcher:
         
         var = sol["x" + str(self._model.special_id)]
         
-        red_cost = sol["x" + str(self._model.special_id) + "_red_cost"] * self._model.dm_af_coversion[self._model.special_ingredient] / (sol["DMI"] * sol["Feeding Time"])
+        if var >= ing_level:
+            self._model.special_cost = 10.0
+            lb_cost = tol_cost
+            ub_cost = self._model.special_cost
+            self.run_scenario(algorithm, lb, ub, tol, uncertain_bounds = False, find_red_cost = True)
+            if self._batch:
+                sol = self._solutions.pop()
+            else:
+                sol = self._solutions
+
+            var = sol["x" + str(self._model.special_id)]
         
-        if self._model.p_obj == "MaxProfitSWG" or self._model.p_obj == "MinCostSWG":
-            red_cost *= self._model._p_swg
+            red_cost = sol["x" + str(self._model.special_id) + "_red_cost"] * self._model.dm_af_coversion[self._model.special_ingredient] / (sol["DMI"] * sol["Feeding Time"])
         
-        self._model.special_cost += red_cost
-    
-        if self._model.special_cost < tol_cost:
-            self._model.special_cost = 1.5 * tol_cost
+            if self._model.p_obj == "MaxProfitSWG" or self._model.p_obj == "MinCostSWG":
+                red_cost *= self._model._p_swg
+
+            self._model.special_cost += red_cost
+
+            if self._model.special_cost < tol_cost:
+                self._model.special_cost = 2 * tol_cost
+
+            self.search_reduced_cost_recursive(algorithm, lb, ub, tol, lb_cost, ub_cost, tol_cost, ing_level)
             
-        self.search_reduced_cost_recursive(algorithm, lb, ub, tol, lb_cost, ub_cost, tol_cost, ing_lb, ing_ub)
+        else:
+            if self._batch:
+                self._solutions.append(sol)
         
         if self._batch:
             final_solution = self._solutions.pop()
