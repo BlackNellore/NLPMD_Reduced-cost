@@ -30,6 +30,7 @@ class Model:
     p_id, p_feed_scenario, p_batch, p_breed, p_sbw, p_feed_time, p_target_weight, \
     p_bcs, p_be, p_l, p_sex, p_a2, p_ph, p_selling_price, \
     p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_dmi_eq, p_obj, p_find_reduced_cost, p_ing_level = [None for i in range(23)]
+    p_fat_orient = "L"
 
     _batch_map: dict = None
     # batch_map = {batch_ID:
@@ -69,7 +70,7 @@ class Model:
                 vector[i] = bigM
 
     def run(self, p_id, p_cnem):
-        """Either build or update model, solve ir and return solution = {dict xor None}"""
+        """Either build or update model, solve it and return solution = {dict xor None}"""
         logging.info("Populating and running model")
         try:
             self.opt_sol = None
@@ -119,12 +120,13 @@ class Model:
         sol["obj_revenue"] = self.revenue
         for i in range(len(self._var_names_x)):
             sol["obj_cost"] += diet.get_solution_vec()[i] * self.expenditure_obj_vector[i]
-
+        
         params = self._get_params(self._p_swg)
         sol_activity = dict(zip(["{}_act".format(constraint) for constraint in self.constraints_names],
                                 diet.get_solution_activity_levels(self.constraints_names)))
         sol_rhs = dict(zip(["{}_rhs".format(constraint) for constraint in self.constraints_names],
                            diet.get_constraints_rhs(self.constraints_names)))
+        sol_rhs["fat orient"] = self.p_fat_orient
         sol_red_cost = dict(zip(["{}_red_cost".format(var) for var in diet.get_variable_names()],
                                 diet.get_dual_reduced_costs())) #get dual values
         sol_dual = dict(zip(["{}_dual".format(const) for const in diet.get_constraints_names()],
@@ -334,7 +336,8 @@ class Model:
                                                self.headers_feed_lib.s_CP,
                                                self.headers_feed_lib.s_RUP,
                                                self.headers_feed_lib.s_Forage,
-                                               self.headers_feed_lib.s_Fat],
+                                               self.headers_feed_lib.s_Fat,
+                                               self.p_fat_orient],
                                               self.ingredient_ids,
                                               self.headers_feed_lib.s_ID)
         mpm_list = [nrc.mp(*row) for row in mp_properties]
@@ -374,7 +377,17 @@ class Model:
                             rhs=[0.06],
                             senses=["L"]
                             )
-
+        
+        "Constraint: Alternative fat: sum(x a) <= 0.039 DMI or sum(x a) >= 0.039 DMI"
+        diet.add_constraint(names=["alternative_fat"],
+                            lin_expr=[[x_vars, self.ds.sorted_column(self.data_feed_lib,
+                                                                     self.headers_feed_lib.s_Fat,
+                                                                     self.ingredient_ids,
+                                                                     self.headers_feed_lib.s_ID)]],
+                            rhs=[0.039],
+                            senses=[self.p_fat_orient]
+                            )
+        
         "Constraint: peNDF: sum(x a) <= peNDF DMI"
         pendf_data = [self.ds.sorted_column(self.data_feed_lib,
                                             self.headers_feed_lib.s_NDF,

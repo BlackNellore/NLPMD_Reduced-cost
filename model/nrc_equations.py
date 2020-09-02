@@ -85,7 +85,7 @@ class NRC_eq:
                                     l=l,
                                     sex=sex,
                                     a2=a2)
-        return np.power(sbw, 0.75) * (0.077 * be * l * (0.8 + 0.05 * (bcs-1) * sex + a2))
+        return np.power(sbw, 0.75) * (0.077 * be * l * (0.8 + 0.05 * (bcs-1)) * sex + a2)
 
     @staticmethod
     def get_all_parameters(cnem, sbw, bcs, be, l, sex, a2, ph_val, target_weight, dmi_eq):
@@ -93,7 +93,7 @@ class NRC_eq:
         return NRC_eq.mpm(sbw), NRC_eq.dmi(cnem, sbw, target_weight, dmi_eq), NRC_eq.nem(sbw, bcs, be, l, sex, a2), NRC_eq.pe_ndf(ph_val)
 
     @staticmethod
-    def mp(p_dmi=0, p_tdn=0, p_cp=0, p_rup=0, p_forage=0, p_ee=0):
+    def mp(p_dmi=0, p_tdn=0, p_cp=0, p_rup=0, p_forage=0, p_ee=0, fat_orient = "L"):
         """Metabolizable Protein"""
         NRC_eq.test_negative_values('mp', p_dmi=p_dmi,
                                     p_tdn=p_tdn,
@@ -107,22 +107,22 @@ class NRC_eq:
             percentage = 1
 
         # NRC 8th Ed. pg 95 and pg 366
-        if p_ee < 0.039:
+        if fat_orient == "L":
             a = 42.73
             b = 0.087
             c = p_tdn
             if p_forage < 1:
                 alpha = 0.8
             else:
-                alpha = 0.8
-        else:
+                alpha = 0.6
+        elif fat_orient == "G":
             a = 53.33
             b = 0.096
             c = p_tdn - 2.55 * p_ee
             if p_forage < 1:
                 alpha = 0.8
             else:
-                alpha = 0.8
+                alpha = 0.6
 
         protein = a * 1/1000 * 0 + 0.64 * b * c * percentage * 1/1000 + p_rup * percentage * p_cp * percentage * alpha
 

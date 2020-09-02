@@ -155,7 +155,15 @@ class Searcher:
     def run_scenario(self, algorithm, lb, ub, tol, uncertain_bounds = True, find_red_cost = False):
         self._msg = f"single objective lb={lb}, ub={ub}, algorithm={algorithm}"
         self.__clear_searcher()
-        sol_vec = getattr(self, algorithm)(lb, ub, tol, uncertain_bounds)
+        
+        fat_list = ["G", "L"]
+        sol_vec = [None, None]
+        
+        for i in range(2):
+            self._model.p_fat_orient = fat_list[i]
+            sol_vec[i] = getattr(self, algorithm)(lb, ub, tol, uncertain_bounds)
+            
+        sol_vec = sol_vec[0] + sol_vec[1]
         status, solution = self.get_results(sol_vec, best=(self._batch or find_red_cost))
         if status == Status.SOLVED:
             if self._batch:
@@ -204,12 +212,10 @@ class Searcher:
         #if force_clear or (not self._batch):
         self._solutions.clear()
         self._status = Status.READY
-        self._model.prefix_id = self._msg
-
+        self._model.prefix_id = self._msg     
+                
     
     def search_reduced_cost_recursive(self, algorithm, lb, ub, tol, lb_cost, ub_cost, tol_cost, ing_level):
-        
-        logging.debug(f"lb_cost: {lb_cost}, ub_cost: {ub_cost}, cost: {self._model.special_cost}")
         
         if (ub_cost - lb_cost <= tol_cost):
             self._model.special_cost = lb_cost
@@ -223,7 +229,7 @@ class Searcher:
                 sol = self._solutions
             
             var = sol["x" + str(self._model.special_id)]
-            logging.debug(f"sol:{sol}")
+            
             if var > ing_level:
                 new_lb_cost = self._model.special_cost
                 self._model.special_cost = (new_lb_cost + ub_cost) / 2
