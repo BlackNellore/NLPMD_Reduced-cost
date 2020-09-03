@@ -58,7 +58,7 @@ class Output:
 
         path = self.temp_dir + name + ".csv"
 
-        with open(path, "a+", newline='', encoding='utf-16') as file:
+        with open(path, "a+", newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             file.seek(0)
             first_line = file.readline()
