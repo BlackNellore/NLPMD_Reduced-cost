@@ -11,6 +11,7 @@ class Searcher:
     _obj_func_key = None
     _msg = None
     _batch = False
+    _fat_list = ["G", "L"]
 
     _status = Status.EMPTY
     _solutions = None
@@ -24,11 +25,22 @@ class Searcher:
         self._batch = batch
         self._model.prefix_id = ""
 
-    def refine_bounds(self, lb=0.0, ub=1.0, tol=0.01):
-        new_lb = self.refine_bound(lb, ub, direction=1, tol=tol)
-        if new_lb is None:
-            return None, None
-        new_ub = self.refine_bound(lb, ub, direction=-1, tol=tol)
+    def refine_bounds(self, lb=0.0, ub=1.0, tol=0.01, double_refinement = False):
+        if double_refinement:
+            new_lb = {}
+            new_ub = {}
+            for i in range(len(self._fat_list)):
+                self._model.p_fat_orient = self._fat_list[i]
+                new_lb[self._fat_list[i]] = self.refine_bound(lb, ub, direction=1, tol=tol)
+                if new_lb[self._fat_list[i]] is None:
+                    return None, None
+                new_ub[self._fat_list[i]] = self.refine_bound(lb, ub, direction=-1, tol=tol)
+        else:
+            new_lb = self.refine_bound(lb, ub, direction=1, tol=tol)
+            if new_lb is None:
+                return None, None
+            new_ub = self.refine_bound(lb, ub, direction=-1, tol=tol)
+            
         return new_lb, new_ub
 
     def refine_bound(self, v0=0.0, vf=1.0, direction=1, tol=0.01):
@@ -152,18 +164,21 @@ class Searcher:
             raise(e)
             return None, None
 
-    def run_scenario(self, algorithm, lb, ub, tol, uncertain_bounds = True, find_red_cost = False):
-        self._msg = f"single objective lb={lb}, ub={ub}, algorithm={algorithm}"
-        self.__clear_searcher()
-        
-        fat_list = ["G", "L"]
-        sol_vec = [None, None]
-        
-        for i in range(2):
-            self._model.p_fat_orient = fat_list[i]
-            sol_vec[i] = getattr(self, algorithm)(lb, ub, tol, uncertain_bounds)
-            
-        sol_vec = sol_vec[0] + sol_vec[1]
+    def run_scenario(self, algorithm, lb, ub, tol, uncertain_bounds = True, find_red_cost = False):   
+        sol_vec = []
+        for i in range(len(self._fat_list)):
+            if type(lb) == dict:
+                self._msg = f"single objective lb={lb[self._fat_list[i]]}, ub={ub[self._fat_list[i]]}, algorithm={algorithm}"
+            else:
+                self._msg = f"single objective lb={lb}, ub={ub}, algorithm={algorithm}"
+            self.__clear_searcher()
+            self._model.p_fat_orient = self._fat_list[i]
+            if type(lb) == dict:
+                sol_vec.append(getattr(self, algorithm)(lb[self._fat_list[i]], ub[self._fat_list[i]], tol, uncertain_bounds))
+            else:
+                sol_vec.append(getattr(self, algorithm)(lb, ub, tol, uncertain_bounds = True))
+                
+        sol_vec = list(np.concatenate(sol_vec))
         status, solution = self.get_results(sol_vec, best=(self._batch or find_red_cost))
         if status == Status.SOLVED:
             if self._batch:
@@ -295,7 +310,7 @@ class Searcher:
         else:
             final_solution = self._solutions
         
-        final_solution["x" + str(self._model.special_id) + "_price"] = self._model.special_cost
+        final_solution["x" + str(self._model.special_id) + "_price_" + str(int(100 * ing_level))] = self._model.special_cost
         
         if self._batch:
             self._solutions.append(final_solution)

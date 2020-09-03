@@ -101,13 +101,14 @@ class Diet:
             optimizer.set_batch_params(0)
         lb, ub = optimizer.refine_bounds(parameters[headers_scenario.s_lb],
                                          parameters[headers_scenario.s_ub],
-                                         parameters[headers_scenario.s_tol]
+                                         parameters[headers_scenario.s_tol],
+                                         double_refinement = True
                                          )
-
-        if lb is None or ub is None:
-            logging.warning("There is no feasible solution in the domain {0} <= CNEm <= {1}"
-                            .format(parameters[headers_scenario.s_lb], parameters[headers_scenario.s_ub]))
-            return None, None
+        for i in range(len(optimizer._fat_list)):
+            if lb[optimizer._fat_list[i]] is None or ub[optimizer._fat_list[i]] is None:
+                logging.warning("There is no feasible solution in the domain {0} <= CNEm <= {1}"
+                                .format(parameters[headers_scenario.s_lb], parameters[headers_scenario.s_ub]))
+                return None, None
         logging.info("Refinement completed")
         logging.info("Choosing optimization method")
         return lb, ub
