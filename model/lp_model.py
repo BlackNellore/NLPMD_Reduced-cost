@@ -7,7 +7,7 @@ import logging
 import math
 
 cnem_lb, cnem_ub = 0.8, 3
-
+default_special_cost = 10.0
 bigM = 100000
 
 
@@ -30,7 +30,6 @@ class Model:
     p_id, p_feed_scenario, p_batch, p_breed, p_sbw, p_feed_time, p_target_weight, \
     p_bcs, p_be, p_l, p_sex, p_a2, p_ph, p_selling_price, \
     p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_dmi_eq, p_obj, p_find_reduced_cost, p_ing_level = [None for i in range(23)]
-    p_fat_orient = "L"
 
     _batch_map: dict = None
     # batch_map = {batch_ID:
@@ -51,6 +50,7 @@ class Model:
     _p_swg = None
     _model_feeding_time = None
     _model_final_weight = None
+    _p_fat_orient = None
 
     _print_model_lp = False
     _print_model_lp_infeasible = False
@@ -127,7 +127,7 @@ class Model:
                                 diet.get_solution_activity_levels(self.constraints_names)))
         sol_rhs = dict(zip(["{}_rhs".format(constraint) for constraint in self.constraints_names],
                            diet.get_constraints_rhs(self.constraints_names)))
-        sol_rhs["fat orient"] = self.p_fat_orient
+        sol_rhs["fat orient"] = self._p_fat_orient
         sol_red_cost = dict(zip(["{}_red_cost".format(var) for var in diet.get_variable_names()],
                                 diet.get_dual_reduced_costs())) #get dual values
         sol_dual = dict(zip(["{}_dual".format(const) for const in diet.get_constraints_names()],
@@ -340,7 +340,7 @@ class Model:
                                                self.headers_feed_lib.s_RUP,
                                                self.headers_feed_lib.s_Forage,
                                                self.headers_feed_lib.s_Fat,
-                                               self.p_fat_orient],
+                                               self._p_fat_orient],
                                               self.ingredient_ids,
                                               self.headers_feed_lib.s_ID)
         mpm_list = [nrc.mp(*row) for row in mp_properties]
@@ -385,7 +385,7 @@ class Model:
                                                                      self.ingredient_ids,
                                                                      self.headers_feed_lib.s_ID)]],
                             rhs=[0.039],
-                            senses=[self.p_fat_orient]
+                            senses=[self._p_fat_orient]
                             )
         
         "Constraint: peNDF: sum(x a) <= peNDF DMI"
@@ -421,12 +421,13 @@ class Model:
 
         seq_of_pairs = tuple(zip(new_rhs.keys(), new_rhs.values()))
         self._diet.set_constraint_rhs(seq_of_pairs)
-        self._diet.set_constraint_sense("alternative_fat", self.p_fat_orient)
-
+        self._diet.set_constraint_sense("alternative_fat", self._p_fat_orient)
         self._diet.set_objective_function(list(zip(self._var_names_x, self.cost_obj_vector)), self.cst_obj)
 
-        # TODO deve ta aqui o erro
 
+    def set_fat_orient(self, direction):
+        self._p_fat_orient = direction
+    
     def set_batch_params(self, i):
         self.batch_execution_id = i
 
@@ -453,32 +454,47 @@ class Model:
                         self.data_feed_scenario[self.headers_feed_scenario.s_ID] == ing_id,
                         self.headers_feed_scenario.s_max
                     ] = vector[self.batch_execution_id]
-
+                    
 class Model_ReducedCost(Model):
 
-    special_ingredient = None
-    special_cost = None
+    _special_ingredient = None
+    _special_id = None
+    _special_cost = None
 
-    def __init__(self, out_ds, parameters, special_id, special_cost = 10.0):
+    def __init__(self, out_ds, parameters, special_id, special_cost = default_special_cost):
         Model.__init__(self, out_ds, parameters)
-        self.special_id = special_id
+        self._special_id = special_id
         for i in range(len(self.ingredient_ids)):
-            if self.ingredient_ids[i] == self.special_id:
-                self.special_ingredient = i
-        self.special_cost = special_cost
+            if self.ingredient_ids[i] == self._special_id:
+                self._special_ingredient = i
+        self._special_cost = special_cost
 
+    def _solve(self, problem_id):
+        sol = Model._solve(self, problem_id)
+        sol["x" + str(self._special_id) + "_price_" + str(int(100 * self.p_ing_level))] = self._special_cost
+        return sol
+    
     def _compute_parameters(self, problem_id):
         if not Model._compute_parameters(self, problem_id):
             return False
         else:
-            self.cost_obj_vector[self.special_ingredient] = self.special_cost/self.dm_af_coversion[self.special_ingredient]
-            self.expenditure_obj_vector[self.special_ingredient] = self.cost_obj_vector[self.special_ingredient] * self._p_dmi * self._model_feeding_time        
+            self.cost_obj_vector[self._special_ingredient] = self._special_cost/self.dm_af_coversion[self._special_ingredient]
+            self.expenditure_obj_vector[self._special_ingredient] = self.cost_obj_vector[self._special_ingredient] * self._p_dmi * self._model_feeding_time        
 
             if self.p_obj == "MaxProfit" or self.p_obj == "MinCost":
-                self.cost_obj_vector[self.special_ingredient] = - self.expenditure_obj_vector[self.special_ingredient]   
+                self.cost_obj_vector[self._special_ingredient] = - self.expenditure_obj_vector[self._special_ingredient]   
             elif self.p_obj == "MaxProfitSWG" or self.p_obj == "MinCostSWG":
-                self.cost_obj_vector[self.special_ingredient] = -(self.expenditure_obj_vector[self.special_ingredient])/self._p_swg
-
-#             self.cost_obj_vector_mono = self.cost_obj_vector.copy()
-            
+                self.cost_obj_vector[self._special_ingredient] = -(self.expenditure_obj_vector[self._special_ingredient])/self._p_swg
             return True
+        
+    def set_special_cost(self, cost=default_special_cost):
+        self._special_cost = cost
+        
+    def get_special_cost(self):
+        return self._special_cost
+    
+    def get_special_id(self):
+        return self._special_id
+    
+    def get_special_ingredient(self):
+        return self._special_ingredient

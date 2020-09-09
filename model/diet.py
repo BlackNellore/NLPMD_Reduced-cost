@@ -104,11 +104,10 @@ class Diet:
                                          parameters[headers_scenario.s_tol],
                                          double_refinement = True
                                          )
-        for i in range(len(optimizer._fat_list)):
-            if lb[optimizer._fat_list[i]] is None or ub[optimizer._fat_list[i]] is None:
-                logging.warning("There is no feasible solution in the domain {0} <= CNEm <= {1}"
+        if lb is None:
+            logging.warning("There is no feasible solution in the domain {0} <= CNEm <= {1}"
                                 .format(parameters[headers_scenario.s_lb], parameters[headers_scenario.s_ub]))
-                return None, None
+            return None, None
         logging.info("Refinement completed")
         logging.info("Choosing optimization method")
         return lb, ub
