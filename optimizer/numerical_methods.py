@@ -168,15 +168,22 @@ class Searcher:
         sol_vec = []
         for i in range(len(self._fat_list)):
             if type(lb) == dict:
-                self._msg = f"single objective lb={lb[self._fat_list[i]]}, ub={ub[self._fat_list[i]]}, algorithm={algorithm}"
+                self._msg = f"single objective lb={lb[self._fat_list[i]]}," \
+                            f" ub={ub[self._fat_list[i]]}," \
+                            f" algorithm={algorithm}"
             else:
-                self._msg = f"single objective lb={lb}, ub={ub}, algorithm={algorithm}"
+                self._msg = f"single objective lb={lb}," \
+                            f" ub={ub}," \
+                            f" algorithm={algorithm}"
             self.__clear_searcher()
             self._model.p_fat_orient = self._fat_list[i]
             if type(lb) == dict:
-                sol_vec.append(getattr(self, algorithm)(lb[self._fat_list[i]], ub[self._fat_list[i]], tol, uncertain_bounds))
+                sol_vec.append(getattr(self, algorithm)(lb[self._fat_list[i]],
+                                                        ub[self._fat_list[i]],
+                                                        tol,
+                                                        uncertain_bounds))
             else:
-                sol_vec.append(getattr(self, algorithm)(lb, ub, tol, uncertain_bounds = True))
+                sol_vec.append(getattr(self, algorithm)(lb, ub, tol, uncertain_bounds=True))
                 
         sol_vec = list(np.concatenate(sol_vec))
         status, solution = self.get_results(sol_vec, best=(self._batch or find_red_cost))
@@ -228,15 +235,14 @@ class Searcher:
         self._solutions.clear()
         self._status = Status.READY
         self._model.prefix_id = self._msg     
-                
-    
+
     def search_reduced_cost_recursive(self, algorithm, lb, ub, tol, lb_cost, ub_cost, tol_cost, ing_level):
         
-        if (ub_cost - lb_cost <= tol_cost):
+        if ub_cost - lb_cost <= tol_cost:
             self._model.special_cost = lb_cost
-            self.run_scenario(algorithm, lb, ub, tol, uncertain_bounds = False, find_red_cost = True)
+            self.run_scenario(algorithm, lb, ub, tol, uncertain_bounds=False, find_red_cost=True)
         else:
-            self.run_scenario(algorithm, lb, ub, tol, uncertain_bounds = False, find_red_cost = True)
+            self.run_scenario(algorithm, lb, ub, tol, uncertain_bounds=False, find_red_cost=True)
             
             if self._batch:
                 sol = self._solutions.pop()
@@ -289,7 +295,9 @@ class Searcher:
 
             var = sol["x" + str(self._model.special_id)]
         
-            red_cost = sol["x" + str(self._model.special_id) + "_red_cost"] * self._model.dm_af_coversion[self._model.special_ingredient] / (sol["DMI"] * sol["Feeding Time"])
+            red_cost = sol["x" + str(self._model.special_id) + "_red_cost"]\
+                       * self._model.dm_af_coversion[self._model.special_ingredient]\
+                       / (sol["DMI"] * sol["Feeding Time"])
         
             if self._model.p_obj == "MaxProfitSWG" or self._model.p_obj == "MinCostSWG":
                 red_cost *= self._model._p_swg

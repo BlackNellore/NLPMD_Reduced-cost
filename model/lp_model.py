@@ -39,7 +39,8 @@ class Model:
     #                   }
     #              }
     _diet = None
-    _p_mpm = None
+    _p_mpmr = None
+    _p_mpgr = None
     _p_dmi = None
     _p_nem = None
     _p_neg = None
@@ -93,11 +94,11 @@ class Model:
         if p_swg is None:
             return dict(zip(["CNEm", "CNEg", "NEm", "NEg", "DMI", "MPm",  "peNDF"],
                             [self._p_cnem, self._p_cneg, self._p_nem, self._p_neg,
-                             self._p_dmi, self._p_mpm * 0.001, self._p_pe_ndf]))
+                             self._p_dmi, self._p_mpmr * 0.001, self._p_pe_ndf]))
         else:
             return dict(zip(["CNEm", "CNEg", "NEm", "NEg", "SWG", "DMI", "MPm",  "peNDF"],
                             [self._p_cnem, self._p_cneg, self._p_nem, self._p_neg, p_swg,
-                             self._p_dmi, self._p_mpm * 0.001, self._p_pe_ndf]))
+                             self._p_dmi, self._p_mpmr * 0.001, self._p_pe_ndf]))
 
     def _solve(self, problem_id):
         """Return None if solution is infeasible or Solution dict otherwise"""
@@ -232,9 +233,9 @@ class Model:
     def _compute_parameters(self, problem_id):
 
         """Compute parameters variable with CNEm"""
-        self._p_mpm, self._p_dmi, self._p_nem, self._p_pe_ndf = \
-            nrc.get_all_parameters(self._p_cnem, self.p_sbw, self.p_bcs,
-                                   self.p_be, self.p_l, self.p_sex, self.p_a2, self.p_ph, self.p_target_weight, self.p_dmi_eq)
+        self._p_mpmr, self._p_dmi, self._p_nem, self._p_pe_ndf = \
+            nrc.get_all_parameters(self._p_cnem, self.p_sbw, self.p_bcs, self.p_be, self.p_l, self.p_sex, self.p_a2,
+                                   self.p_ph, self.p_target_weight, self.p_dmi_eq)
 
         self._p_cneg = nrc.cneg(self._p_cnem)
         self._p_neg = nrc.neg(self._p_cneg, self._p_dmi, self._p_cnem, self._p_nem)
@@ -251,6 +252,8 @@ class Model:
             self._model_final_weight = self._model_feeding_time * self._p_swg + self.p_sbw
         else:
             raise Exception("target weight and feeding time cannot be defined at the same time")
+
+        self._p_mpgr = nrc.mpg(self._p_swg, self._p_neg, self.p_sbw, self._model_final_weight, self._model_feeding_time)
 
         self.cost_obj_vector = self.cost_vector.copy()
         for i in range(len(self.cost_obj_vector)):
@@ -342,12 +345,9 @@ class Model:
                                               self.headers_feed_lib.s_ID)
         mpm_list = [nrc.mp(*row) for row in mp_properties]
 
-        # for i, v in enumerate(mpm_list):
-        #     mpm_list[i] = v - (self._p_swg * 268 - self._p_neg * 29.4) * 0.001 / self._p_dmi
-
         diet.add_constraint(names=["MPm"],
                             lin_expr=[[x_vars, mpm_list]],
-                            rhs=[(self._p_mpm + 268 * self._p_swg - 29.4 * self._p_neg)* 0.001 / self._p_dmi],
+                            rhs=[(self._p_mpmr + self._p_mpgr) * 0.001 / self._p_dmi],
                             senses=["G"]
                             )
 
@@ -414,7 +414,7 @@ class Model:
             "CNEm GE": self._p_cnem * 0.999,
             "CNEm LE": self._p_cnem * 1.001,
             "SUM 1": 1,
-            "MPm": self._p_mpm * 0.001 / self._p_dmi,
+            "MPm": self._p_mpmr * 0.001 / self._p_dmi,
             "RDP": 0.125 * self._p_cnem,
             "Fat": 0.06,
             "peNDF": self._p_pe_ndf}

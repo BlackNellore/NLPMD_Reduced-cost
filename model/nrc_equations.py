@@ -77,6 +77,16 @@ class NRC_eq:
         return 3.8 * np.power(sbw, 0.75)
 
     @staticmethod
+    def mpg(swg, neg, sbw, target_weight, feeding_time):
+        """Metabolizable protein for gain"""
+        npg = swg * 268 - 29.4 * neg
+        if sbw >= 300:
+            return npg / 0.492
+        else:
+            return npg / (0.834 - (sbw * 0.00114))
+
+
+    @staticmethod
     def nem(sbw, bcs, be, l, sex, a2):
         """ Net Energy for Maintenance """
         NRC_eq.test_negative_values('nem', sbw=sbw,
@@ -90,10 +100,13 @@ class NRC_eq:
     @staticmethod
     def get_all_parameters(cnem, sbw, bcs, be, l, sex, a2, ph_val, target_weight, dmi_eq):
         """Easier way to get all parameters needed on the model at once"""
-        return NRC_eq.mpm(sbw), NRC_eq.dmi(cnem, sbw, target_weight, dmi_eq), NRC_eq.nem(sbw, bcs, be, l, sex, a2), NRC_eq.pe_ndf(ph_val)
+        return NRC_eq.mpm(sbw),\
+               NRC_eq.dmi(cnem, sbw, target_weight, dmi_eq),\
+               NRC_eq.nem(sbw, bcs, be, l, sex, a2), \
+               NRC_eq.pe_ndf(ph_val)
 
     @staticmethod
-    def mp(p_dmi=0, p_tdn=0, p_cp=0, p_rup=0, p_forage=0, p_ee=0, fat_orient = "L"):
+    def mp(p_dmi=0, p_tdn=0, p_cp=0, p_rup=0, p_forage=0, p_ee=0, fat_orient="L"):
         """Metabolizable Protein"""
         NRC_eq.test_negative_values('mp', p_dmi=p_dmi,
                                     p_tdn=p_tdn,
