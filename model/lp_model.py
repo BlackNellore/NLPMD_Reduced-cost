@@ -421,6 +421,7 @@ class Model:
 
         seq_of_pairs = tuple(zip(new_rhs.keys(), new_rhs.values()))
         self._diet.set_constraint_rhs(seq_of_pairs)
+        self._diet.set_constraint_sense("alternative_fat", self.p_fat_orient)
 
         self._diet.set_objective_function(list(zip(self._var_names_x, self.cost_obj_vector)), self.cst_obj)
 
