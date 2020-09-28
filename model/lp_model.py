@@ -247,7 +247,6 @@ class Model:
         if self._p_neg is None:
             return False
         if math.isnan(self.p_feed_time) or self.p_feed_time == 0:
-            self._model_feeding_time = (self.p_target_weight - self.p_sbw)/self._p_swg
             self._model_final_weight = self.p_target_weight
             self._p_swg = nrc.swg(self._p_neg, self.p_sbw, self._model_final_weight)
             self._model_feeding_time = (self.p_target_weight - self.p_sbw)/self._p_swg
