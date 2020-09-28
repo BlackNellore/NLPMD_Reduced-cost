@@ -19,6 +19,7 @@ def model_factory(ds, parameters, special_product = -1):
 
 
 class Model:
+    # TODO 1.2: Acho que os Dataframes não precisam mais ser globais se vamos substiruir por dicts, mas os dicts precisam
     ds: data_handler.Data = None
     headers_feed_lib: data_handler.Data.IngredientProperties = None  # Feed Library
     data_feed_lib: pandas.DataFrame = None  # Feed Library
@@ -101,6 +102,7 @@ class Model:
                              self._p_dmi, self._p_mpmr * 0.001, self._p_pe_ndf]))
 
     def _solve(self, problem_id):
+        # TODO 2.2: Modificar o solve implementando as funções do Pyomo
         """Return None if solution is infeasible or Solution dict otherwise"""
         diet = self._diet
         # diet.write_lp(name="CNEm_{}.lp".format(str(self._p_cnem)))
@@ -176,6 +178,7 @@ class Model:
              self.p_find_reduced_cost] = parameters
 
     def _cast_data(self, out_ds, parameters):
+        # TODO 1.0: Substituir os DataFrames por dicts
         """Retrieve parameters data from table. See data_handler.py for more"""
         self.ds = out_ds
 
@@ -212,6 +215,7 @@ class Model:
 #             self.cost_vector[i] /= self.dm_af_coversion[i]
 
         if self.p_batch > 0:
+            # TODO 1.1: Aconselho a substituir esses DFs por dicts tb e manter a mesma lógica de busca
             try:
                 batch_feed_scenario = self.ds.batch_map[self.p_id]["data_feed_scenario"][self.p_feed_scenario]
                 # {Feed_id: {col_name: [list_from_batch_file]}}
@@ -231,6 +235,7 @@ class Model:
                                "data_scenario": batch_scenario}
 
     def _compute_parameters(self, problem_id):
+        # TODO 1.3: Talvez precise atualizar algo aqui depois de mudar os DFs para dicts, checar.
 
         """Compute parameters variable with CNEm"""
         self._p_mpmr, self._p_dmi, self._p_nem, self._p_pe_ndf = \
@@ -241,7 +246,6 @@ class Model:
         self._p_neg = nrc.neg(self._p_cneg, self._p_dmi, self._p_cnem, self._p_nem)
         if self._p_neg is None:
             return False
-        # self._p_swg = nrc.swg(self._p_neg, self.p_sbw, self.p_target_weight)
         if math.isnan(self.p_feed_time) or self.p_feed_time == 0:
             self._model_final_weight = self.p_target_weight
             self._p_swg = nrc.swg(self._p_neg, self.p_sbw, self._model_final_weight)
@@ -287,6 +291,7 @@ class Model:
         return True
 
     def _build_model(self):
+        # TODO 2.0: Implementar construção do modelo pelo Pyomo
         """Build model (initially based on CPLEX 12.8.1)"""
         self._diet = optimizer.Optimizer()
         self._var_names_x = ["x" + str(f_id)
@@ -409,6 +414,8 @@ class Model:
         pass
 
     def _update_model(self):
+        # TODO 2.1: Atualizar utilizando as funções do Pyomo.
+        # TODO 2.2 Aqui vai existir uma gambiarra. Vc vai utilizar os nomes dos objetos que foram criados em _build()
         """Update RHS values on the model based on the new CNEm and updated parameters"""
         new_rhs = {
             "CNEm GE": self._p_cnem * 0.999,
@@ -432,6 +439,7 @@ class Model:
         self.batch_execution_id = i
 
     def _setup_batch(self):
+        # TODO 1.4: Mudar de dataframe para o dict
         # batch_map = {"data_feed_scenario": {Feed_id: {col_name: [list_from_batch_file]}}},
         #              "data_scenario": {col_name: [list_from_batch_file]}}
         #              }
@@ -456,6 +464,8 @@ class Model:
                     ] = vector[self.batch_execution_id]
                     
 class Model_ReducedCost(Model):
+    # TODO 1.X: Mesmas coisas que foram feitas na classe pai
+    # TODO 2.X: Mesmas coisas que foram feitas na classe pai
 
     _special_ingredient = None
     _special_id = None
