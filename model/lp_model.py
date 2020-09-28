@@ -19,6 +19,7 @@ def model_factory(ds, parameters, special_product = -1):
 
 
 class Model:
+    # TODO 1.2: Acho que os Dataframes não precisam mais ser globais se vamos substiruir por dicts, mas os dicts precisam
     ds: data_handler.Data = None
     headers_feed_lib: data_handler.Data.IngredientProperties = None  # Feed Library
     data_feed_lib: pandas.DataFrame = None  # Feed Library
@@ -101,6 +102,7 @@ class Model:
                              self._p_dmi, self._p_mpmr * 0.001, self._p_pe_ndf]))
 
     def _solve(self, problem_id):
+        # TODO 2.2: Modificar o solve implementando as funções do Pyomo
         """Return None if solution is infeasible or Solution dict otherwise"""
         diet = self._diet
         # diet.write_lp(name="CNEm_{}.lp".format(str(self._p_cnem)))
@@ -121,7 +123,7 @@ class Model:
         sol["obj_revenue"] = self.revenue
         for i in range(len(self._var_names_x)):
             sol["obj_cost"] += diet.get_solution_vec()[i] * self.expenditure_obj_vector[i]
-        
+
         params = self._get_params(self._p_swg)
         sol_activity = dict(zip(["{}_act".format(constraint) for constraint in self.constraints_names],
                                 diet.get_solution_activity_levels(self.constraints_names)))
@@ -176,6 +178,7 @@ class Model:
              self.p_find_reduced_cost] = parameters
 
     def _cast_data(self, out_ds, parameters):
+        # TODO 1.0: Substituir os DataFrames por dicts
         """Retrieve parameters data from table. See data_handler.py for more"""
         self.ds = out_ds
 
@@ -212,6 +215,7 @@ class Model:
 #             self.cost_vector[i] /= self.dm_af_coversion[i]
 
         if self.p_batch > 0:
+            # TODO 1.1: Aconselho a substituir esses DFs por dicts tb e manter a mesma lógica de busca
             try:
                 batch_feed_scenario = self.ds.batch_map[self.p_id]["data_feed_scenario"][self.p_feed_scenario]
                 # {Feed_id: {col_name: [list_from_batch_file]}}
@@ -231,6 +235,7 @@ class Model:
                                "data_scenario": batch_scenario}
 
     def _compute_parameters(self, problem_id):
+        # TODO 1.3: Talvez precise atualizar algo aqui depois de mudar os DFs para dicts, checar.
 
         """Compute parameters variable with CNEm"""
         self._p_mpmr, self._p_dmi, self._p_nem, self._p_pe_ndf = \
@@ -243,6 +248,7 @@ class Model:
             return False
         # self._p_swg = nrc.swg(self._p_neg, self.p_sbw, self.p_target_weight)
         if math.isnan(self.p_feed_time) or self.p_feed_time == 0:
+            self._model_feeding_time = (self.p_target_weight - self.p_sbw)/self._p_swg
             self._model_final_weight = self.p_target_weight
             self._p_swg = nrc.swg(self._p_neg, self.p_sbw, self._model_final_weight)
             self._model_feeding_time = (self.p_target_weight - self.p_sbw)/self._p_swg
@@ -287,6 +293,7 @@ class Model:
         return True
 
     def _build_model(self):
+        # TODO 2.0: Implementar construção do modelo pelo Pyomo
         """Build model (initially based on CPLEX 12.8.1)"""
         self._diet = optimizer.Optimizer()
         self._var_names_x = ["x" + str(f_id)
@@ -377,7 +384,7 @@ class Model:
                             rhs=[0.06],
                             senses=["L"]
                             )
-        
+
         "Constraint: Alternative fat: sum(x a) <= 0.039 DMI or sum(x a) >= 0.039 DMI"
         diet.add_constraint(names=["alternative_fat"],
                             lin_expr=[[x_vars, self.ds.sorted_column(self.data_feed_lib,
@@ -387,7 +394,7 @@ class Model:
                             rhs=[0.039],
                             senses=[self._p_fat_orient]
                             )
-        
+
         "Constraint: peNDF: sum(x a) <= peNDF DMI"
         pendf_data = [self.ds.sorted_column(self.data_feed_lib,
                                             self.headers_feed_lib.s_NDF,
@@ -409,6 +416,8 @@ class Model:
         pass
 
     def _update_model(self):
+        # TODO 2.1: Atualizar utilizando as funções do Pyomo.
+        # TODO 2.2 Aqui vai existir uma gambiarra. Vc vai utilizar os nomes dos objetos que foram criados em _build()
         """Update RHS values on the model based on the new CNEm and updated parameters"""
         new_rhs = {
             "CNEm GE": self._p_cnem * 0.999,
@@ -427,11 +436,12 @@ class Model:
 
     def set_fat_orient(self, direction):
         self._p_fat_orient = direction
-    
+
     def set_batch_params(self, i):
         self.batch_execution_id = i
 
     def _setup_batch(self):
+        # TODO 1.4: Mudar de dataframe para o dict
         # batch_map = {"data_feed_scenario": {Feed_id: {col_name: [list_from_batch_file]}}},
         #              "data_scenario": {col_name: [list_from_batch_file]}}
         #              }
@@ -454,8 +464,10 @@ class Model:
                         self.data_feed_scenario[self.headers_feed_scenario.s_ID] == ing_id,
                         self.headers_feed_scenario.s_max
                     ] = vector[self.batch_execution_id]
-                    
+
 class Model_ReducedCost(Model):
+    # TODO 1.X: Mesmas coisas que foram feitas na classe pai
+    # TODO 2.X: Mesmas coisas que foram feitas na classe pai
 
     _special_ingredient = None
     _special_id = None
@@ -473,7 +485,7 @@ class Model_ReducedCost(Model):
         sol = Model._solve(self, problem_id)
         sol["x" + str(self._special_id) + "_price_" + str(int(100 * self.p_ing_level))] = self._special_cost
         return sol
-    
+
     def _compute_parameters(self, problem_id):
         if not Model._compute_parameters(self, problem_id):
             return False
@@ -489,12 +501,12 @@ class Model_ReducedCost(Model):
         
     def set_special_cost(self, cost=default_special_cost):
         self._special_cost = cost
-        
+
     def get_special_cost(self):
         return self._special_cost
-    
+
     def get_special_id(self):
         return self._special_id
-    
+
     def get_special_ingredient(self):
         return self._special_ingredient
