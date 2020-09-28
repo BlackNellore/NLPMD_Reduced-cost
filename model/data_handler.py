@@ -60,8 +60,10 @@ class Data:
         s_lb: str
         s_ub: str
         s_tol: str
+        s_dmi_eq: str
         s_obj: str
         s_find_reduced_cost: str
+        s_ing_level: str
 
     # Sheet Feeds
     class ScenarioFeedProperties(NamedTuple):
@@ -85,8 +87,6 @@ class Data:
     class IngredientProperties(NamedTuple):
         s_ID: str
         s_FEED: str
-        s_Cost: str
-        s_IFN: str
         s_Forage: str
         s_DM: str
         s_CP: str
@@ -100,47 +100,11 @@ class Data:
         s_NDF: str
         s_Lignin: str
         s_TDN: str
-        s_ME: str
         s_NEma: str
         s_NEga: str
         s_RUP: str
-        s_kd_PB: str
-        s_kd_CB1: str
-        s_kd_CB2: str
-        s_kd_CB3: str
-        s_PBID: str
-        s_CB1ID: str
-        s_CB2ID: str
         s_pef: str
-        s_ARG: str
-        s_HIS: str
-        s_ILE: str
-        s_LEU: str
-        s_LYS: str
-        s_MET: str
-        s_CYS: str
-        s_PHE: str
-        s_TYR: str
-        s_THR: str
-        s_TRP: str
-        s_VAL: str
-        s_Ca: str
-        s_P: str
-        s_Mg: str
-        s_Cl: str
-        s_K: str
-        s_Na: str
-        s_S: str
-        s_Co: str
-        s_Cu: str
-        s_I: str
-        s_Fe: str
-        s_Mn: str
-        s_Se: str
-        s_Zn: str
-        s_Vit_A: str
-        s_Vit_D: str
-        s_Vit_E: str
+
 
     headers_feed_lib: IngredientProperties = None  # Feed Library
     headers_feed_scenario: ScenarioFeedProperties = None  # Feeds
@@ -243,21 +207,6 @@ class Data:
         self.batchFeedScenarioCandidate = [self.headers_feed_scenario.s_min, self.headers_feed_scenario.s_max,
                                            self.headers_feed_scenario.s_feed_cost]
 
-        # batchInfo = [self.map_values(self.data_batch['Batch ID'], self.data_batch['Filename']),
-        #              self.map_values(self.data_batch['Batch ID'], self.data_batch['Initial Period']),
-        #              self.map_values(self.data_batch['Batch ID'], self.data_batch['Final Period'])]
-
-        # batch_id = unwrap_list(batch_id)
-
-        # candidatesScenario = self.get_column_data(batch_scenarios, self.batchScenarioCandidate)
-        # candidateFeedScenario = self.get_column_data(batch_feed_scenarios, self.batchFeedScenarioCandidate)
-        # feedScenarioBatchId = self.map_values(batch_scenarios['Feed Scenario'], batch_scenarios['Batch'])
-
-        # batch_map = {batch_ID:
-        #                  {"data_feed_scenario": {Feed_Scenario: {Feed_id: {col_name: [list_from_batch_file]}}},
-        #                   "data_scenario": {ID: {col_name: [list_from_batch_file]}}
-        #                   }
-        #              }
         list_batch_id = unwrap_list(batch_scenarios.filter(items=[self.headers_scenario.s_id]).values)
 
         self.batch_map = dict(zip(list_batch_id,
@@ -320,36 +269,6 @@ class Data:
                                                             [initial, final]))
             self.batch_map[id]["data_scenario"] = batch_data_scenario
 
-
-        # # replace batch name by temporal series in Scenario Data
-        # for i in batch_id:
-        #     for j in range(len(candidatesScenario[0])):
-        #         if type(candidatesScenario[i][j]) == str:
-        #             batch_name = batchInfo[0][batch_id[i]]
-        #             initial = batchInfo[1][batch_id[i]]
-        #             final = batchInfo[2][batch_id[i]]
-        #             candidatesScenario[i][j] = list(self.get_series_from_batch(self.data_series[batch_name],
-        #                                                                        candidatesScenario[i][j],
-        #                                                                        [initial, final]))
-        #
-        # # replace batch name by temporal series in Feed Scenario Data
-        # for i in range(len(feed_scenarios_ids)):
-        #     for j in range(len(candidateFeedScenario[0])):
-        #         if type(candidateFeedScenario[i][j]) == str:
-        #             batch_name = batchInfo[0][feedScenarioBatchId[feed_scenarios_ids[i]]]
-        #             initial = batchInfo[1][feedScenarioBatchId[feed_scenarios_ids[i]]]
-        #             final = batchInfo[2][feedScenarioBatchId[feed_scenarios_ids[i]]]
-        #             candidateFeedScenario[i][j] = list(self.get_series_from_batch(self.data_series[batch_name],
-        #                                                                           candidateFeedScenario[i][j],
-        #                                                                           [initial, final]))
-        #
-        # # update batch_scenarios and feed_scenarios with temporal series
-        # batch_scenarios.loc[:, self.batchScenarioCandidate] = candidatesScenario
-        # batch_feed_scenarios.loc[:, self.batchFeedScenarioCandidate] = candidateFeedScenario
-        #
-        # # update data frame with batchs
-        # self.data_scenario = self.data_scenario.append(batch_scenarios).sort_index()
-        # self.data_feed_scenario = self.data_feed_scenario.append(batch_feed_scenarios).sort_index()
 
         # checking if config.py is consistent with Excel headers
         check_list = [(sheet_feed_lib, self.headers_feed_lib),

@@ -7,7 +7,7 @@ import logging
 import math
 
 cnem_lb, cnem_ub = 0.8, 3
-
+default_special_cost = 10.0
 bigM = 100000
 
 
@@ -19,6 +19,7 @@ def model_factory(ds, parameters, special_product = -1):
 
 
 class Model:
+    # TODO 1.2: Acho que os Dataframes não precisam mais ser globais se vamos substiruir por dicts, mas os dicts precisam
     ds: data_handler.Data = None
     headers_feed_lib: data_handler.Data.IngredientProperties = None  # Feed Library
     data_feed_lib: pandas.DataFrame = None  # Feed Library
@@ -29,7 +30,7 @@ class Model:
 
     p_id, p_feed_scenario, p_batch, p_breed, p_sbw, p_feed_time, p_target_weight, \
     p_bcs, p_be, p_l, p_sex, p_a2, p_ph, p_selling_price, \
-    p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_obj, find_reduced_cost = [None for i in range(21)]
+    p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_dmi_eq, p_obj, p_find_reduced_cost, p_ing_level = [None for i in range(23)]
 
     _batch_map: dict = None
     # batch_map = {batch_ID:
@@ -38,7 +39,8 @@ class Model:
     #                   }
     #              }
     _diet = None
-    _p_mpm = None
+    _p_mpmr = None
+    _p_mpgr = None
     _p_dmi = None
     _p_nem = None
     _p_neg = None
@@ -49,6 +51,7 @@ class Model:
     _p_swg = None
     _model_feeding_time = None
     _model_final_weight = None
+    _p_fat_orient = None
 
     _print_model_lp = False
     _print_model_lp_infeasible = False
@@ -69,7 +72,7 @@ class Model:
                 vector[i] = bigM
 
     def run(self, p_id, p_cnem):
-        """Either build or update model, solve ir and return solution = {dict xor None}"""
+        """Either build or update model, solve it and return solution = {dict xor None}"""
         logging.info("Populating and running model")
         try:
             self.opt_sol = None
@@ -92,13 +95,14 @@ class Model:
         if p_swg is None:
             return dict(zip(["CNEm", "CNEg", "NEm", "NEg", "DMI", "MPm",  "peNDF"],
                             [self._p_cnem, self._p_cneg, self._p_nem, self._p_neg,
-                             self._p_dmi, self._p_mpm * 0.001, self._p_pe_ndf]))
+                             self._p_dmi, self._p_mpmr * 0.001, self._p_pe_ndf]))
         else:
             return dict(zip(["CNEm", "CNEg", "NEm", "NEg", "SWG", "DMI", "MPm",  "peNDF"],
                             [self._p_cnem, self._p_cneg, self._p_nem, self._p_neg, p_swg,
-                             self._p_dmi, self._p_mpm * 0.001, self._p_pe_ndf]))
+                             self._p_dmi, self._p_mpmr * 0.001, self._p_pe_ndf]))
 
     def _solve(self, problem_id):
+        # TODO 2.2: Modificar o solve implementando as funções do Pyomo
         """Return None if solution is infeasible or Solution dict otherwise"""
         diet = self._diet
         # diet.write_lp(name="CNEm_{}.lp".format(str(self._p_cnem)))
@@ -125,6 +129,7 @@ class Model:
                                 diet.get_solution_activity_levels(self.constraints_names)))
         sol_rhs = dict(zip(["{}_rhs".format(constraint) for constraint in self.constraints_names],
                            diet.get_constraints_rhs(self.constraints_names)))
+        sol_rhs["fat orient"] = self._p_fat_orient
         sol_red_cost = dict(zip(["{}_red_cost".format(var) for var in diet.get_variable_names()],
                                 diet.get_dual_reduced_costs())) #get dual values
         sol_dual = dict(zip(["{}_dual".format(const) for const in diet.get_constraints_names()],
@@ -163,16 +168,17 @@ class Model:
             [self.p_id, self.p_feed_scenario, self.p_batch, self.p_breed, self.p_sbw, self.p_feed_time,
              self.p_target_weight,self.p_bcs, self.p_be, self.p_l,
              self.p_sex, self.p_a2, self.p_ph, self.p_selling_price,
-             self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_obj,
-             self.find_reduced_cost] = parameters.values()
+             self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_dmi_eq, self.p_obj,
+             self.p_find_reduced_cost, self.p_ing_level] = parameters.values()
         elif isinstance(parameters, list):
             [self.p_id, self.p_feed_scenario, self.p_batch, self.p_breed, self.p_sbw, self.p_feed_time,
              self.p_target_weight,self.p_bcs, self.p_be, self.p_l,
              self.p_sex, self.p_a2, self.p_ph, self.p_selling_price,
-             self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_obj,
-             self.find_reduced_cost] = parameters
+             self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_dmi_eq, self.p_obj,
+             self.p_find_reduced_cost] = parameters
 
     def _cast_data(self, out_ds, parameters):
+        # TODO 1.0: Substituir os DataFrames por dicts
         """Retrieve parameters data from table. See data_handler.py for more"""
         self.ds = out_ds
 
@@ -209,6 +215,7 @@ class Model:
 #             self.cost_vector[i] /= self.dm_af_coversion[i]
 
         if self.p_batch > 0:
+            # TODO 1.1: Aconselho a substituir esses DFs por dicts tb e manter a mesma lógica de busca
             try:
                 batch_feed_scenario = self.ds.batch_map[self.p_id]["data_feed_scenario"][self.p_feed_scenario]
                 # {Feed_id: {col_name: [list_from_batch_file]}}
@@ -228,25 +235,29 @@ class Model:
                                "data_scenario": batch_scenario}
 
     def _compute_parameters(self, problem_id):
+        # TODO 1.3: Talvez precise atualizar algo aqui depois de mudar os DFs para dicts, checar.
 
         """Compute parameters variable with CNEm"""
-        self._p_mpm, self._p_dmi, self._p_nem, self._p_pe_ndf = \
-            nrc.get_all_parameters(self._p_cnem, self.p_sbw, self.p_bcs,
-                                   self.p_be, self.p_l, self.p_sex, self.p_a2, self.p_ph)
+        self._p_mpmr, self._p_dmi, self._p_nem, self._p_pe_ndf = \
+            nrc.get_all_parameters(self._p_cnem, self.p_sbw, self.p_bcs, self.p_be, self.p_l, self.p_sex, self.p_a2,
+                                   self.p_ph, self.p_target_weight, self.p_dmi_eq)
 
         self._p_cneg = nrc.cneg(self._p_cnem)
         self._p_neg = nrc.neg(self._p_cneg, self._p_dmi, self._p_cnem, self._p_nem)
         if self._p_neg is None:
             return False
-        self._p_swg = nrc.swg(self._p_neg, self.p_sbw)
         if math.isnan(self.p_feed_time) or self.p_feed_time == 0:
-            self._model_feeding_time = (self.p_target_weight - self.p_sbw)/self._p_swg
             self._model_final_weight = self.p_target_weight
+            self._p_swg = nrc.swg(self._p_neg, self.p_sbw, self._model_final_weight)
+            self._model_feeding_time = (self.p_target_weight - self.p_sbw)/self._p_swg
         elif math.isnan(self.p_target_weight) or self.p_target_weight == 0:
             self._model_feeding_time = self.p_feed_time
+            self._p_swg = nrc.swg_time(self._p_neg, self.p_sbw, self._model_feeding_time)
             self._model_final_weight = self._model_feeding_time * self._p_swg + self.p_sbw
         else:
             raise Exception("target weight and feeding time cannot be defined at the same time")
+
+        self._p_mpgr = nrc.mpg(self._p_swg, self._p_neg, self.p_sbw, self._model_final_weight, self._model_feeding_time)
 
         self.cost_obj_vector = self.cost_vector.copy()
         for i in range(len(self.cost_obj_vector)):
@@ -257,7 +268,7 @@ class Model:
         self.expenditure_obj_vector = self.cost_vector.copy()
         for i in range(len(self.cost_vector)):
             # self.revenue_obj_vector[i] = self.p_selling_price * (self.p_sbw + self._p_swg * self._model_feeding_time)
-            self.expenditure_obj_vector[i] = self.cost_vector[i] * self._p_dmi * self._model_feeding_time
+            self.expenditure_obj_vector[i] = self.cost_obj_vector[i] * self._p_dmi * self._model_feeding_time
         # r = [self.revenue_obj_vector[i] - self.expenditure_obj_vector[i] for i in range(len(self.revenue_obj_vector))]
         if self.p_obj == "MaxProfit":
             for i in range(len(self.cost_vector)):
@@ -280,6 +291,7 @@ class Model:
         return True
 
     def _build_model(self):
+        # TODO 2.0: Implementar construção do modelo pelo Pyomo
         """Build model (initially based on CPLEX 12.8.1)"""
         self._diet = optimizer.Optimizer()
         self._var_names_x = ["x" + str(f_id)
@@ -332,17 +344,15 @@ class Model:
                                                self.headers_feed_lib.s_CP,
                                                self.headers_feed_lib.s_RUP,
                                                self.headers_feed_lib.s_Forage,
-                                               self.headers_feed_lib.s_Fat],
+                                               self.headers_feed_lib.s_Fat,
+                                               self._p_fat_orient],
                                               self.ingredient_ids,
                                               self.headers_feed_lib.s_ID)
         mpm_list = [nrc.mp(*row) for row in mp_properties]
 
-        # for i, v in enumerate(mpm_list):
-        #     mpm_list[i] = v - (self._p_swg * 268 - self._p_neg * 29.4) * 0.001 / self._p_dmi
-
         diet.add_constraint(names=["MPm"],
                             lin_expr=[[x_vars, mpm_list]],
-                            rhs=[(self._p_mpm + 268 * self._p_swg - 29.4 * self._p_neg)* 0.001 / self._p_dmi],
+                            rhs=[(self._p_mpmr + self._p_mpgr) * 0.001 / self._p_dmi],
                             senses=["G"]
                             )
 
@@ -373,6 +383,16 @@ class Model:
                             senses=["L"]
                             )
 
+        "Constraint: Alternative fat: sum(x a) <= 0.039 DMI or sum(x a) >= 0.039 DMI"
+        diet.add_constraint(names=["alternative_fat"],
+                            lin_expr=[[x_vars, self.ds.sorted_column(self.data_feed_lib,
+                                                                     self.headers_feed_lib.s_Fat,
+                                                                     self.ingredient_ids,
+                                                                     self.headers_feed_lib.s_ID)]],
+                            rhs=[0.039],
+                            senses=[self._p_fat_orient]
+                            )
+
         "Constraint: peNDF: sum(x a) <= peNDF DMI"
         pendf_data = [self.ds.sorted_column(self.data_feed_lib,
                                             self.headers_feed_lib.s_NDF,
@@ -394,27 +414,32 @@ class Model:
         pass
 
     def _update_model(self):
+        # TODO 2.1: Atualizar utilizando as funções do Pyomo.
+        # TODO 2.2 Aqui vai existir uma gambiarra. Vc vai utilizar os nomes dos objetos que foram criados em _build()
         """Update RHS values on the model based on the new CNEm and updated parameters"""
         new_rhs = {
             "CNEm GE": self._p_cnem * 0.999,
             "CNEm LE": self._p_cnem * 1.001,
             "SUM 1": 1,
-            "MPm": self._p_mpm * 0.001 / self._p_dmi,
+            "MPm": self._p_mpmr * 0.001 / self._p_dmi,
             "RDP": 0.125 * self._p_cnem,
             "Fat": 0.06,
             "peNDF": self._p_pe_ndf}
 
         seq_of_pairs = tuple(zip(new_rhs.keys(), new_rhs.values()))
         self._diet.set_constraint_rhs(seq_of_pairs)
-
+        self._diet.set_constraint_sense("alternative_fat", self._p_fat_orient)
         self._diet.set_objective_function(list(zip(self._var_names_x, self.cost_obj_vector)), self.cst_obj)
 
-        # TODO deve ta aqui o erro
+
+    def set_fat_orient(self, direction):
+        self._p_fat_orient = direction
 
     def set_batch_params(self, i):
         self.batch_execution_id = i
 
     def _setup_batch(self):
+        # TODO 1.4: Mudar de dataframe para o dict
         # batch_map = {"data_feed_scenario": {Feed_id: {col_name: [list_from_batch_file]}}},
         #              "data_scenario": {col_name: [list_from_batch_file]}}
         #              }
@@ -439,32 +464,47 @@ class Model:
                     ] = vector[self.batch_execution_id]
 
 class Model_ReducedCost(Model):
+    # TODO 1.X: Mesmas coisas que foram feitas na classe pai
+    # TODO 2.X: Mesmas coisas que foram feitas na classe pai
 
-    special_ingredient = None
-    special_cost = None
+    _special_ingredient = None
+    _special_id = None
+    _special_cost = None
 
-    def __init__(self, out_ds, parameters, special_id, special_cost = 10.0):
+    def __init__(self, out_ds, parameters, special_id, special_cost = default_special_cost):
         Model.__init__(self, out_ds, parameters)
-        self.special_id = special_id
+        self._special_id = special_id
         for i in range(len(self.ingredient_ids)):
-            if self.ingredient_ids[i] == self.special_id:
-                self.special_ingredient = i
-        self.special_cost = special_cost
+            if self.ingredient_ids[i] == self._special_id:
+                self._special_ingredient = i
+        self._special_cost = special_cost
+
+    def _solve(self, problem_id):
+        sol = Model._solve(self, problem_id)
+        sol["x" + str(self._special_id) + "_price_" + str(int(100 * self.p_ing_level))] = self._special_cost
+        return sol
 
     def _compute_parameters(self, problem_id):
         if not Model._compute_parameters(self, problem_id):
             return False
         else:
-            self.cost_obj_vector[self.special_ingredient] = self.special_cost/self.dm_af_coversion[self.special_ingredient]
-            self.expenditure_obj_vector[self.special_ingredient] = self.cost_obj_vector[self.special_ingredient] * self._p_dmi * self._model_feeding_time        
+            self.cost_obj_vector[self._special_ingredient] = self._special_cost/self.dm_af_coversion[self._special_ingredient]
+            self.expenditure_obj_vector[self._special_ingredient] = self.cost_obj_vector[self._special_ingredient] * self._p_dmi * self._model_feeding_time        
 
             if self.p_obj == "MaxProfit" or self.p_obj == "MinCost":
-                self.cost_obj_vector[self.special_ingredient] = - self.expenditure_obj_vector[self.special_ingredient]   
+                self.cost_obj_vector[self._special_ingredient] = - self.expenditure_obj_vector[self._special_ingredient]   
             elif self.p_obj == "MaxProfitSWG" or self.p_obj == "MinCostSWG":
-                self.cost_obj_vector[self.special_ingredient] = -(self.expenditure_obj_vector[self.special_ingredient])/self._p_swg
-
-#             self.cost_obj_vector_mono = self.cost_obj_vector.copy()
-            
+                self.cost_obj_vector[self._special_ingredient] = -(self.expenditure_obj_vector[self._special_ingredient])/self._p_swg
             return True
         
+    def set_special_cost(self, cost=default_special_cost):
+        self._special_cost = cost
 
+    def get_special_cost(self):
+        return self._special_cost
+
+    def get_special_id(self):
+        return self._special_id
+
+    def get_special_ingredient(self):
+        return self._special_ingredient

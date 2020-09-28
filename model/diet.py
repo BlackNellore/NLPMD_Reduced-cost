@@ -37,6 +37,8 @@ class Diet:
         for scenario in data_scenario.values:
 
             parameters = dict(zip(headers_scenario, scenario))
+            if parameters[headers_scenario.s_id] < 0:
+                continue
             batch = False
             if parameters[headers_scenario.s_batch] > 0:
                 batch = True
@@ -99,12 +101,12 @@ class Diet:
             optimizer.set_batch_params(0)
         lb, ub = optimizer.refine_bounds(parameters[headers_scenario.s_lb],
                                          parameters[headers_scenario.s_ub],
-                                         parameters[headers_scenario.s_tol]
+                                         parameters[headers_scenario.s_tol],
+                                         double_refinement = True
                                          )
-
-        if lb is None or ub is None:
+        if lb is None:
             logging.warning("There is no feasible solution in the domain {0} <= CNEm <= {1}"
-                            .format(parameters[headers_scenario.s_lb], parameters[headers_scenario.s_ub]))
+                                .format(parameters[headers_scenario.s_lb], parameters[headers_scenario.s_ub]))
             return None, None
         logging.info("Refinement completed")
         logging.info("Choosing optimization method")
@@ -114,7 +116,7 @@ class Diet:
     def __single_scenario(optimizer, parameters, lb, ub, tol):
         algorithm = Algorithms[parameters[headers_scenario.s_algorithm]]
         if parameters[headers_scenario.s_find_reduced_cost] > 0:
-            optimizer.search_reduced_cost(algorithm, lb, ub, tol)
+            optimizer.search_reduced_cost(algorithm, lb, ub, tol, parameters[headers_scenario.s_ing_level])
         else:
             optimizer.run_scenario(algorithm, lb, ub, tol)
 
