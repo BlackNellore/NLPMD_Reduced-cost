@@ -123,7 +123,7 @@ class Model:
         sol["obj_revenue"] = self.revenue
         for i in range(len(self._var_names_x)):
             sol["obj_cost"] += diet.get_solution_vec()[i] * self.expenditure_obj_vector[i]
-        
+
         params = self._get_params(self._p_swg)
         sol_activity = dict(zip(["{}_act".format(constraint) for constraint in self.constraints_names],
                                 diet.get_solution_activity_levels(self.constraints_names)))
@@ -247,6 +247,7 @@ class Model:
         if self._p_neg is None:
             return False
         if math.isnan(self.p_feed_time) or self.p_feed_time == 0:
+            self._model_feeding_time = (self.p_target_weight - self.p_sbw)/self._p_swg
             self._model_final_weight = self.p_target_weight
             self._p_swg = nrc.swg(self._p_neg, self.p_sbw, self._model_final_weight)
             self._model_feeding_time = (self.p_target_weight - self.p_sbw)/self._p_swg
@@ -382,7 +383,7 @@ class Model:
                             rhs=[0.06],
                             senses=["L"]
                             )
-        
+
         "Constraint: Alternative fat: sum(x a) <= 0.039 DMI or sum(x a) >= 0.039 DMI"
         diet.add_constraint(names=["alternative_fat"],
                             lin_expr=[[x_vars, self.ds.sorted_column(self.data_feed_lib,
@@ -392,7 +393,7 @@ class Model:
                             rhs=[0.039],
                             senses=[self._p_fat_orient]
                             )
-        
+
         "Constraint: peNDF: sum(x a) <= peNDF DMI"
         pendf_data = [self.ds.sorted_column(self.data_feed_lib,
                                             self.headers_feed_lib.s_NDF,
@@ -434,7 +435,7 @@ class Model:
 
     def set_fat_orient(self, direction):
         self._p_fat_orient = direction
-    
+
     def set_batch_params(self, i):
         self.batch_execution_id = i
 
@@ -462,7 +463,7 @@ class Model:
                         self.data_feed_scenario[self.headers_feed_scenario.s_ID] == ing_id,
                         self.headers_feed_scenario.s_max
                     ] = vector[self.batch_execution_id]
-                    
+
 class Model_ReducedCost(Model):
     # TODO 1.X: Mesmas coisas que foram feitas na classe pai
     # TODO 2.X: Mesmas coisas que foram feitas na classe pai
@@ -483,7 +484,7 @@ class Model_ReducedCost(Model):
         sol = Model._solve(self, problem_id)
         sol["x" + str(self._special_id) + "_price_" + str(int(100 * self.p_ing_level))] = self._special_cost
         return sol
-    
+
     def _compute_parameters(self, problem_id):
         if not Model._compute_parameters(self, problem_id):
             return False
@@ -499,12 +500,12 @@ class Model_ReducedCost(Model):
         
     def set_special_cost(self, cost=default_special_cost):
         self._special_cost = cost
-        
+
     def get_special_cost(self):
         return self._special_cost
-    
+
     def get_special_id(self):
         return self._special_id
-    
+
     def get_special_ingredient(self):
         return self._special_ingredient
