@@ -180,37 +180,13 @@ class Model:
     def _cast_data(self, out_ds, parameters):
         # TODO 1.0: Substituir os DataFrames por dicts
         """Retrieve parameters data from table. See data_handler.py for more"""
-        self.ds = out_ds
 
-        self.data_feed_scenario = self.ds.data_feed_scenario
-        self.headers_feed_scenario = self.ds.headers_feed_scenario
+        self.model_data = self.ds.Dict_Parser(self.p_id, self.p_feed_scenario, self.p_batch)
 
-        self.scenario_parameters = parameters
-        self.__set_parameters(parameters)
+        self.model_data.cost_vector
+        self.model_data.neg
 
-        headers_feed_scenario = self.ds.headers_feed_scenario
-        self.data_feed_scenario = self.ds.filter_column(self.ds.data_feed_scenario,
-                                                        self.ds.headers_feed_scenario.s_feed_scenario,
-                                                        self.p_feed_scenario)
-        self.data_feed_scenario = self.ds.sort_df(self.data_feed_scenario, self.headers_feed_scenario.s_ID)
 
-        self.ingredient_ids = list(
-            self.ds.get_column_data(self.data_feed_scenario, self.headers_feed_scenario.s_ID, int))
-
-        self.headers_feed_lib = self.ds.headers_feed_lib
-        self.data_feed_lib = self.ds.filter_column(self.ds.data_feed_lib, self.headers_feed_lib.s_ID,
-                                                   self.ingredient_ids)
-
-        self.cost_vector = self.ds.sorted_column(self.data_feed_scenario, self.headers_feed_scenario.s_feed_cost,
-                                                 self.ingredient_ids,
-                                                 self.headers_feed_scenario.s_ID)
-        self.n_ingredients = self.data_feed_scenario.shape[0]
-        self.cost_vector = self.ds.sorted_column(self.data_feed_scenario, headers_feed_scenario.s_feed_cost,
-                                                 self.ingredient_ids,
-                                                 self.headers_feed_scenario.s_ID)
-        self.dm_af_coversion = self.ds.sorted_column(self.data_feed_lib, self.headers_feed_lib.s_DM,
-                                                self.ingredient_ids,
-                                                self.headers_feed_lib.s_ID)
 #         for i in range(len(self.cost_vector)):
 #             self.cost_vector[i] /= self.dm_af_coversion[i]
 
