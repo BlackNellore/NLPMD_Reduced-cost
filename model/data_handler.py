@@ -351,6 +351,11 @@ class Data:
             else:
                 return unwrap_list(ds)
 
+    def get_dict_data(self, dataFrame, header, base_list, base_header):
+        keys = list(self.get_column_data(dataFrame, base_header))
+        vals = list(self.get_column_data(dataFrame, header))
+        return dict(zip(keys, vals))
+
     @staticmethod
     def map_values(headers, vals):
         """Map all column values in a dic based on the parsed header"""
@@ -396,6 +401,46 @@ class Data:
             return mapping
         else:
             return [mapping[k] for k in base_list]
+
+    class Dict_Parser():
+        # TODO
+        costs: dict = None
+        nem: dict = None
+        neg: dict = None
+
+        def __init__(self, id, feed_scenario, batch):
+            self.data_feed_scenario = self.ds.data_feed_scenario
+            self.headers_feed_scenario = self.ds.headers_feed_scenario
+
+            headers_feed_scenario = self.ds.headers_feed_scenario
+            self.data_feed_scenario = self.ds.filter_column(self.ds.data_feed_scenario,
+                                                            self.ds.headers_feed_scenario.s_feed_scenario,
+                                                            feed_scenario)
+            self.data_feed_scenario = self.ds.sort_df(self.data_feed_scenario, self.headers_feed_scenario.s_ID)
+
+
+            self.costs = None
+            # TODO
+
+
+            self.ingredient_ids = list(
+                self.ds.get_column_data(self.data_feed_scenario, self.headers_feed_scenario.s_ID, int))
+
+            self.headers_feed_lib = self.ds.headers_feed_lib
+            self.data_feed_lib = self.ds.filter_column(self.ds.data_feed_lib, self.headers_feed_lib.s_ID,
+                                                       self.ingredient_ids)
+
+            self.cost_vector = self.ds.sorted_column(self.data_feed_scenario, self.headers_feed_scenario.s_feed_cost,
+                                                     self.ingredient_ids,
+                                                     self.headers_feed_scenario.s_ID)
+            self.n_ingredients = self.data_feed_scenario.shape[0]
+            self.cost_vector = self.ds.sorted_column(self.data_feed_scenario, headers_feed_scenario.s_feed_cost,
+                                                     self.ingredient_ids,
+                                                     self.headers_feed_scenario.s_ID)
+            self.dm_af_coversion = self.ds.sorted_column(self.data_feed_lib, self.headers_feed_lib.s_DM,
+                                                         self.ingredient_ids,
+                                                         self.headers_feed_lib.s_ID)
+            pass
 
 
 if __name__ == "__main__":
