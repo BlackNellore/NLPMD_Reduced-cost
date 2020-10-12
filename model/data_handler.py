@@ -388,11 +388,14 @@ class Data:
         df = df.set_index(ids).sort_index()
         return df
 
-    def sorted_column(self, dataFrame, header, base_list, base_header):
+    def sorted_column(self, dataFrame, header, base_list, base_header, return_dict=False):
         keys = list(self.get_column_data(dataFrame, base_header))
         vals = list(self.get_column_data(dataFrame, header))
         mapping = dict(zip(keys, vals))
-        return [mapping[k] for k in base_list]
+        if return_dict:
+            return mapping
+        else:
+            return [mapping[k] for k in base_list]
 
 
 if __name__ == "__main__":
