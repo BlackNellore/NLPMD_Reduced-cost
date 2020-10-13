@@ -1,7 +1,7 @@
 import numpy as np
 from aenum import Enum
 import logging
-from model.lp_model import Model, Model_ReducedCost
+from model.lp_model import Model, ModelReducedCost
 
 Status = Enum('Status', 'EMPTY READY SOLVED ERROR')
 
