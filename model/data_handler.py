@@ -402,6 +402,13 @@ class Data:
         else:
             return [mapping[k] for k in base_list]
 
+    def multi_sorted_column(self, dataFrame, header, base_list, base_header, return_dict=False):
+        all_dicts = []
+        for h in header:
+            all_dicts.append(self.sorted_column(dataFrame, h, base_list, base_header, return_dict))
+        return all_dicts
+
+
     class Dict_Parser():
         # TODO
         costs: dict = None
