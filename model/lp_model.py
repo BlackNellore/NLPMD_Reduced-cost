@@ -20,7 +20,7 @@ def model_factory(ds, parameters, special_product=-1):
 
 
 class Model:
-    _batch_map: dict = None
+    # _batch_map: dict = None
     # batch_map = {batch_ID:
     #                  {"data_feed_scenario": {Feed_Scenario: {Feed_id: {col_name: [list_from_batch_file]}}},
     #                   "data_scenario": {ID: {col_name: [list_from_batch_file]}}
@@ -234,6 +234,7 @@ class Model:
         scenario_parameters = None
         ingredient_ids = None
         n_ingredients = None
+        dc_mp_properties = None
         dc_cost = None
         dc_ub = None
         dc_lb = None
@@ -280,30 +281,21 @@ class Model:
                                                        )
             [self.dc_dm_af_conversion,
              self.dc_nem,
-             self.dc_mpm,
              self.dc_fat,
-             mp_properties,
+             self.dc_mp_properties,
              rup,
              cp,
              ndf,
              pef] = self.ds.multi_sorted_column(self.data_feed_lib,
                                                 [self.headers_feed_lib.s_DM,
                                                  self.headers_feed_lib.s_NEma,
-                                                 [self.headers_feed_lib.s_DM,
-                                                  self.headers_feed_lib.s_TDN,
-                                                  self.headers_feed_lib.s_CP,
-                                                  self.headers_feed_lib.s_RUP,
-                                                  self.headers_feed_lib.s_Forage,
-                                                  self.headers_feed_lib.s_Fat,
-                                                  parameters.p_fat_orient],
                                                  self.headers_feed_lib.s_Fat,
                                                  [self.headers_feed_lib.s_DM,
                                                   self.headers_feed_lib.s_TDN,
                                                   self.headers_feed_lib.s_CP,
                                                   self.headers_feed_lib.s_RUP,
                                                   self.headers_feed_lib.s_Forage,
-                                                  self.headers_feed_lib.s_Fat,
-                                                  parameters.p_fat_orient],
+                                                  self.headers_feed_lib.s_Fat],
                                                  self.headers_feed_lib.s_RUP,
                                                  self.headers_feed_lib.s_CP,
                                                  self.headers_feed_lib.s_NDF,
@@ -317,14 +309,15 @@ class Model:
             self.dc_rdp = {}
             self.dc_pendf = {}
             for ids in self.ingredient_ids:
-                self.dc_mpm[ids] = nrc.mp(*mp_properties[ids])
+                self.dc_mpm[ids] = nrc.mp(*self.dc_mp_properties[ids])
                 self.dc_rdp[ids] = (1 - rup[ids]) * cp[ids]
                 self.dc_pendf[ids] = ndf[ids] * pef[ids]
 
             if parameters.p_batch > 0:
                 # TODO 1.1: Aconselho a substituir esses DFs por dicts tb e manter a mesma lógica de busca
                 try:
-                    batch_feed_scenario = self.ds.batch_map[parameters.p_id]["data_feed_scenario"][parameters.p_feed_scenario]
+                    batch_feed_scenario = self.ds.batch_map[parameters.p_id]["data_feed_scenario"][
+                        parameters.p_feed_scenario]
                     # {Feed_id: {col_name: [list_from_batch_file]}}
                 except KeyError:
                     logging.warning(f"No Feed_scenario batch for scenario {parameters.p_id},"
@@ -345,7 +338,8 @@ class Model:
             for ing_id, data in parameters.c_batch_map["data_feed_scenario"].items():
                 for col_name, vector in data.items():
                     if col_name == self.headers_feed_scenario.s_feed_cost:
-                        computed.cost_vector[self.ingredient_ids.index(ing_id)] = vector[parameters.p_batch_execution_id]
+                        computed.cost_vector[self.ingredient_ids.index(ing_id)] = vector[
+                            parameters.p_batch_execution_id]
                     elif col_name == self.headers_feed_scenario.s_min:
                         self.data_feed_scenario.loc[
                             self.data_feed_scenario[self.headers_feed_scenario.s_ID] == ing_id,
@@ -365,30 +359,40 @@ class Model:
             return False
         if math.isnan(self.parameters.p_feed_time) or self.parameters.p_feed_time == 0:
             self.parameters.c_model_final_weight = self.parameters.p_target_weight
-            self.parameters.c_swg = nrc.swg(self.parameters.neg, self.parameters.p_sbw, self.parameters.c_model_final_weight)
-            self.parameters.c_model_feeding_time = (self.parameters.p_target_weight - self.parameters.p_sbw) / self.parameters.c_swg
+            self.parameters.c_swg = nrc.swg(self.parameters.neg, self.parameters.p_sbw,
+                                            self.parameters.c_model_final_weight)
+            self.parameters.c_model_feeding_time = (
+                                                               self.parameters.p_target_weight - self.parameters.p_sbw) / self.parameters.c_swg
         elif math.isnan(self.parameters.p_target_weight) or self.parameters.p_target_weight == 0:
             self.parameters.c_model_feeding_time = self.parameters.p_feed_time
-            self.parameters.c_swg = nrc.swg_time(self.parameters.neg, self.parameters.p_sbw, self.parameters.c_model_feeding_time)
+            self.parameters.c_swg = nrc.swg_time(self.parameters.neg, self.parameters.p_sbw,
+                                                 self.parameters.c_model_feeding_time)
             self.parameters.c_model_final_weight = self.parameters.c_model_feeding_time * self.parameters.c_swg + self.parameters.p_sbw
         else:
             raise Exception("target weight and feeding time cannot be defined at the same time")
 
-        self.parameters.mpgr = nrc.mpg(self.parameters.c_swg, self.parameters.neg, self.parameters.p_sbw, self.parameters.c_model_final_weight, self.parameters.c_model_feeding_time)
+        self.parameters.mpgr = nrc.mpg(self.parameters.c_swg, self.parameters.neg, self.parameters.p_sbw,
+                                       self.parameters.c_model_final_weight, self.parameters.c_model_feeding_time)
+
+        for ids in self.data.ingredient_ids:
+            self.data.dc_mpm[ids] = nrc.mp(*self.data.dc_mp_properties[ids], self.parameters.p_fat_orient)
 
         #        self.cost_obj_vector = self.cost_vector.copy()
-        self.computed.revenue = self.parameters.p_selling_price * (self.parameters.p_sbw + self.parameters.c_swg * self.parameters.c_model_feeding_time)
+        self.computed.revenue = self.parameters.p_selling_price * (
+                    self.parameters.p_sbw + self.parameters.c_swg * self.parameters.c_model_feeding_time)
         # self.revenue_obj_vector = self.cost_vector.copy()
         self.computed.dc_expenditure = self.data.dc_cost.copy()
 
         if self.parameters.p_obj == "MaxProfit" or self.parameters.p_obj == "MinCost":
             for i in self.data.ingredient_ids:
-                self.computed.dc_expenditure[i] = - self.data.dc_cost[i] * self.parameters.dmi * self.parameters.c_model_feeding_time / \
+                self.computed.dc_expenditure[i] = - self.data.dc_cost[
+                    i] * self.parameters.dmi * self.parameters.c_model_feeding_time / \
                                                   self.data.dc_dm_af_conversion[i]
         elif self.parameters.p_obj == "MaxProfitSWG" or self.parameters.p_obj == "MinCostSWG":
             for i in self.data.ingredient_ids:
-                self.computed.dc_expenditure[i] = - self.data.dc_cost[i] * self.parameters.dmi * self.parameters.c_model_feeding_time / (
-                        self.data.dc_dm_af_conversion[i] * self.parameters.c_swg)
+                self.computed.dc_expenditure[i] = - self.data.dc_cost[
+                    i] * self.parameters.dmi * self.parameters.c_model_feeding_time / (
+                                                          self.data.dc_dm_af_conversion[i] * self.parameters.c_swg)
 
         if self.parameters.p_obj == "MaxProfit":
             self.computed.cst_obj = self.computed.revenue
@@ -407,15 +411,17 @@ class Model:
         self._diet = pyo.ConcreteModel()
         self._diet.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT_EXPORT)  # resgatar duais
         self._diet.rc = pyo.Suffix(direction=pyo.Suffix.IMPORT_EXPORT)  # resgatar custos reduzidos
-        ### Conjuntos ###
+
+        # Set
         self._diet.s_var_set = pyo.Set(initialize=self.data.ingredient_ids)
-        ### Parametros ###
+
+        # Parameters
         self._diet.p_model_offset = pyo.Param(within=pyo.Any, mutable=True)
         self._diet.p_model_cost = pyo.Param(self._diet.s_var_set, within=pyo.Any, mutable=True)
         self._diet.p_model_lb = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_lb)
         self._diet.p_model_ub = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_ub)
         self._diet.p_model_nem = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_nem)
-        self._diet.p_model_mpm = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_mpm)
+        self._diet.p_model_mpm = pyo.Param(self._diet.s_var_set, within=pyo.Any, mutable=True)
         self._diet.p_model_rdp = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_rdp)
         self._diet.p_model_fat = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_fat)
         self._diet.p_model_pendf = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_pendf)
@@ -429,21 +435,23 @@ class Model:
         self._diet.p_rhs_alt_fat_le = pyo.Param(within=pyo.Any, mutable=True)
         self._diet.p_rhs_pendf = pyo.Param(within=pyo.Any, mutable=True)
 
-        ### Functions ###
+        # Functions
         def bound_function(model, i):
             return (model.p_model_lb[i], model.p_model_ub[i])
 
-        ### Variaveis ###
+        # Variables
         self._diet.v_x = pyo.Var(self._diet.s_var_set, bounds=bound_function)
-        ### Objetivo ###
+
+        # Objective
         self._diet.f_obj = pyo.Objective(
             expr=(self._diet.p_model_offset + pyo.summation(self._diet.p_model_cost, self._diet.v_x)),
             sense=pyo.maximize)
-        ### Restricoes ###
+
+        # Constraints
         self._diet.c_cnem_ge = pyo.Constraint(
             expr=pyo.summation(self._diet.p_model_nem, self._diet.v_x) >= self._diet.p_rhs_cnem_ge)
         self._diet.c_cnem_le = pyo.Constraint(
-            expr=pyo.summation(self._diet.p_model_nem, self._diet.v_x) >= self._diet.p_rhs_cnem_le)
+            expr=pyo.summation(self._diet.p_model_nem, self._diet.v_x) <= self._diet.p_rhs_cnem_le)
         self._diet.c_sum_1 = pyo.Constraint(expr=pyo.summation(self._diet.v_x) == self._diet.p_rhs_sum_1)
         self._diet.c_mpm = pyo.Constraint(
             expr=pyo.summation(self._diet.p_model_mpm, self._diet.v_x) >= self._diet.p_rhs_mpm)
@@ -456,13 +464,14 @@ class Model:
         self._diet.c_alt_fat_le = pyo.Constraint(
             expr=pyo.summation(self._diet.p_model_fat, self._diet.v_x) <= self._diet.p_rhs_alt_fat_le)
         self._diet.c_pendf = pyo.Constraint(
-            expr=pyo.summation(self._diet.p_model_pendf, self._diet.v_x) <= self._diet.p_rhs_pendf)
+            expr=pyo.summation(self._diet.p_model_pendf, self._diet.v_x) >= self._diet.p_rhs_pendf)
 
     def _update_model(self):
         """Update RHS values on the model based on the new CNEm and updated parameters"""
         self._diet.p_model_offset = self.computed.cst_obj
         for i in self._diet.s_var_set:
             self._diet.p_model_cost[i] = self.computed.dc_expenditure[i]
+            self._diet.p_model_mpm[i] = self.data.dc_mpm[i]
 
         self._diet.p_rhs_cnem_ge = self.parameters.cnem * 0.999
         self._diet.p_rhs_cnem_le = self.parameters.cnem * 1.001
@@ -497,7 +506,7 @@ class Model:
             self.scenario_parameters[col_name] = vector[self.parameters.p_batch_execution_id]
         self.parameters.set_parameters(self.scenario_parameters)
         self.data.setup_batch(self.parameters, self.computed)
-        
+
 
 class ModelReducedCost(Model):
     # TODO 1.X: Mesmas coisas que foram feitas na classe pai
