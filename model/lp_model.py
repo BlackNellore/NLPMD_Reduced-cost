@@ -86,7 +86,6 @@ class Model:
         """Return None if solution is infeasible or Solution dict otherwise"""
         #        diet = self._diet
         solver = pyo.SolverFactory('cplex')
-        # self._diet.pprint()
         solver.solve(self._diet)
 
         # diet.write_lp(name="CNEm_{}.lp".format(str(self._p_cnem)))
@@ -155,16 +154,17 @@ class Model:
     scenario_parameters = None
 
     class ComputedArrays:
-        n_ingredients = None
-        cost_vector = None
-        cost_obj_vector = None
-        constraints_names = None
+        # n_ingredients = None
+        # cost_vector = None
+        # cost_obj_vector = None
+        # constraints_names = None
         # revenue_obj_vector = None
         revenue = None
-        expenditure_obj_vector = None
-        dm_af_conversion = None
+        # expenditure_obj_vector = None
+        # dm_af_conversion = None
         cst_obj = None
         dc_expenditure = None
+        dc_mpm = None
 
         def __init__(self):
             pass
@@ -188,7 +188,7 @@ class Model:
         c_swg = None
         c_model_feeding_time = None
         c_model_final_weight = None
-        c_var_names_x = None
+        # c_var_names_x = None
         c_batch_map: dict = None
 
         # From outer scope
@@ -240,7 +240,7 @@ class Model:
         dc_lb = None
         dc_dm_af_conversion = None
         dc_nem = None
-        dc_mpm = None
+        # dc_mpm = None
         dc_fat = None
 
         def __init__(self, out_ds, parameters):
@@ -305,11 +305,11 @@ class Model:
                                                 self.headers_feed_scenario.s_ID,
                                                 return_dict=True
                                                 )
-            self.dc_mpm = {}
+            # self.dc_mpm = {}
             self.dc_rdp = {}
             self.dc_pendf = {}
             for ids in self.ingredient_ids:
-                self.dc_mpm[ids] = nrc.mp(*self.dc_mp_properties[ids])
+                # self.dc_mpm[ids] = nrc.mp(*self.dc_mp_properties[ids])
                 self.dc_rdp[ids] = (1 - rup[ids]) * cp[ids]
                 self.dc_pendf[ids] = ndf[ids] * pef[ids]
 
@@ -362,7 +362,7 @@ class Model:
             self.parameters.c_swg = nrc.swg(self.parameters.neg, self.parameters.p_sbw,
                                             self.parameters.c_model_final_weight)
             self.parameters.c_model_feeding_time = (
-                                                               self.parameters.p_target_weight - self.parameters.p_sbw) / self.parameters.c_swg
+                                                           self.parameters.p_target_weight - self.parameters.p_sbw) / self.parameters.c_swg
         elif math.isnan(self.parameters.p_target_weight) or self.parameters.p_target_weight == 0:
             self.parameters.c_model_feeding_time = self.parameters.p_feed_time
             self.parameters.c_swg = nrc.swg_time(self.parameters.neg, self.parameters.p_sbw,
@@ -373,13 +373,13 @@ class Model:
 
         self.parameters.mpgr = nrc.mpg(self.parameters.c_swg, self.parameters.neg, self.parameters.p_sbw,
                                        self.parameters.c_model_final_weight, self.parameters.c_model_feeding_time)
-
+        self.computed.dc_mpm = {}
         for ids in self.data.ingredient_ids:
-            self.data.dc_mpm[ids] = nrc.mp(*self.data.dc_mp_properties[ids], self.parameters.p_fat_orient)
+            self.computed.dc_mpm[ids] = nrc.mp(*self.data.dc_mp_properties[ids], self.parameters.p_fat_orient)
 
         #        self.cost_obj_vector = self.cost_vector.copy()
         self.computed.revenue = self.parameters.p_selling_price * (
-                    self.parameters.p_sbw + self.parameters.c_swg * self.parameters.c_model_feeding_time)
+                self.parameters.p_sbw + self.parameters.c_swg * self.parameters.c_model_feeding_time)
         # self.revenue_obj_vector = self.cost_vector.copy()
         self.computed.dc_expenditure = self.data.dc_cost.copy()
 
@@ -471,7 +471,7 @@ class Model:
         self._diet.p_model_offset = self.computed.cst_obj
         for i in self._diet.s_var_set:
             self._diet.p_model_cost[i] = self.computed.dc_expenditure[i]
-            self._diet.p_model_mpm[i] = self.data.dc_mpm[i]
+            self._diet.p_model_mpm[i] = self.computed.dc_mpm[i]
 
         self._diet.p_rhs_cnem_ge = self.parameters.cnem * 0.999
         self._diet.p_rhs_cnem_le = self.parameters.cnem * 1.001
