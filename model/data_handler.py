@@ -339,7 +339,15 @@ class Data:
             else:
                 resulting_list = [func(i) for i in unwrap_list(ds)]
             if "%" in col_name:
-                resulting_list = [i * 0.01 for i in unwrap_list(ds)]
+                try:
+                    resulting_list = [i * 0.01 for i in unwrap_list(ds)]
+                except TypeError:
+                    resulting_list = []
+                    for i in unwrap_list(ds):
+                        if isinstance(i, str):
+                            resulting_list.append(i)
+                        else:
+                            resulting_list.append(i * 0.01)
             if len(resulting_list) == 1:
                 return resulting_list[0]
             else:

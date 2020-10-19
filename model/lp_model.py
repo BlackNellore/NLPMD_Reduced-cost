@@ -21,7 +21,7 @@ def model_factory(ds, parameters, special_product=-1):
 
 
 class Model:
-    # _batch_map: dict = None
+    _batch_map: dict = None
     # batch_map = {batch_ID:
     #                  {"data_feed_scenario": {Feed_Scenario: {Feed_id: {col_name: [list_from_batch_file]}}},
     #                   "data_scenario": {ID: {col_name: [list_from_batch_file]}}
@@ -44,14 +44,6 @@ class Model:
         self.parameters = self.Parameters(parameters)
         self.data = self.Data(out_ds, self.parameters)
         self.computed = self.ComputedArrays()
-
-    # @staticmethod
-    # def _remove_inf(vector):
-    #     for i in range(len(vector)):
-    #         if vector[i] == float("-inf"):
-    #             vector[i] = -bigM
-    #         elif vector[i] == float("inf"):
-    #             vector[i] = bigM
 
     def run(self, p_id, p_cnem):
         """Either build or update model, solve it and return solution = {dict xor None}"""
@@ -87,8 +79,8 @@ class Model:
         #        diet = self._diet
         solver = pyo.SolverFactory('cplex')
         results = SolverResults()
-        results.load(solver.solve(self._diet))
-        self._diet
+        r = solver.solve(self._diet)
+        results.load(r)
         if not (results.solver.status == pyo.SolverStatus.ok or
                 pyo.TerminationCondition.optimal == results.solver.termination_condition):
             logging.info("Solution status: {}".format(results.solver.termination_condition))
@@ -114,7 +106,6 @@ class Model:
         u_slack = []
         duals = []
 
-        constraints_to_remove = []
         for c in self._diet.component_objects(pyo.Constraint):
             is_active_constraints.append(c.active)
             if c.active:
@@ -123,14 +114,12 @@ class Model:
                 u_slack.append(c.uslack())
             else:
                 duals.append("None")
-                # constraints_to_remove.append(c)
                 l_slack.append("None")
                 u_slack.append("None")
 
         # TODO Fernando completar
 
-        sol_rhs = {}
-        sol_rhs["fat orient"] = self.parameters.p_fat_orient
+        sol_rhs = {"fat orient": self.parameters.p_fat_orient}
         sol = {**sol_id, **params, **sol, **sol_rhs}
         #        sol = {**sol_id, **params, **sol, **sol_rhs, **sol_activity,
         #               **sol, **sol_dual, **sol_red_cost, **sol_slack}
@@ -148,9 +137,6 @@ class Model:
         self.opt_sol = None
         # diet.write_lp(f"lp_infeasible_{str(problem_id)}.lp")
         logging.warning("Infeasible parameters:{}".format(sol))
-
-    # Parameters filled by inner method ._cast_data()
-    scenario_parameters = None
 
     class ComputedArrays:
         # n_ingredients = None
@@ -196,7 +182,10 @@ class Model:
             p_ing_level \
             = [None for i in range(23)]
 
+        init_parameters = None
+
         def __init__(self, parameters):
+            self.init_parameters = parameters
             self.set_parameters(parameters)
 
         def set_parameters(self, parameters):
@@ -230,7 +219,6 @@ class Model:
         data_scenario: pandas.DataFrame = None  # Scenario
         headers_scenario: data_handler.Data.ScenarioParameters = None  # Scenario
 
-        scenario_parameters = None
         ingredient_ids = None
         n_ingredients = None
         dc_mp_properties = None
@@ -332,22 +320,16 @@ class Model:
                 parameters.c_batch_map = {"data_feed_scenario": batch_feed_scenario,
                                           "data_scenario": batch_scenario}
 
-        def setup_batch(self, parameters, computed):
+        def setup_batch(self, parameters):
             for ing_id, data in parameters.c_batch_map["data_feed_scenario"].items():
                 for col_name, vector in data.items():
                     if col_name == self.headers_feed_scenario.s_feed_cost:
-                        computed.cost_vector[self.ingredient_ids.index(ing_id)] = vector[
-                            parameters.p_batch_execution_id]
+                        self.dc_cost[ing_id] = \
+                            vector[parameters.p_batch_execution_id]
                     elif col_name == self.headers_feed_scenario.s_min:
-                        self.data_feed_scenario.loc[
-                            self.data_feed_scenario[self.headers_feed_scenario.s_ID] == ing_id,
-                            self.headers_feed_scenario.s_min
-                        ] = vector[parameters.p_batch_execution_id]
+                        self.dc_lb[ing_id] = vector[parameters.p_batch_execution_id]
                     elif col_name == self.headers_feed_scenario.s_max:
-                        self.data_feed_scenario.loc[
-                            self.data_feed_scenario[self.headers_feed_scenario.s_ID] == ing_id,
-                            self.headers_feed_scenario.s_max
-                        ] = vector[parameters.p_batch_execution_id]
+                        self.dc_ub[ing_id] = vector[parameters.p_batch_execution_id]
 
     def _compute_parameters(self, problem_id):
         """Compute parameters variable with CNEm"""
@@ -417,8 +399,8 @@ class Model:
         # Parameters
         self._diet.p_model_offset = pyo.Param(within=pyo.Any, mutable=True)
         self._diet.p_model_cost = pyo.Param(self._diet.s_var_set, within=pyo.Any, mutable=True)
-        self._diet.p_model_lb = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_lb)
-        self._diet.p_model_ub = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_ub)
+        self._diet.p_model_lb = pyo.Param(self._diet.s_var_set, within=pyo.Any, mutable=True)
+        self._diet.p_model_ub = pyo.Param(self._diet.s_var_set, within=pyo.Any, mutable=True)
         self._diet.p_model_nem = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_nem)
         self._diet.p_model_mpm = pyo.Param(self._diet.s_var_set, within=pyo.Any, mutable=True)
         self._diet.p_model_rdp = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_rdp)
@@ -436,7 +418,7 @@ class Model:
 
         # Functions
         def bound_function(model, i):
-            return (model.p_model_lb[i], model.p_model_ub[i])
+            return model.p_model_lb[i], model.p_model_ub[i]
 
         # Variables
         self._diet.v_x = pyo.Var(self._diet.s_var_set, bounds=bound_function)
@@ -469,6 +451,8 @@ class Model:
         """Update RHS values on the model based on the new CNEm and updated parameters"""
         self._diet.p_model_offset = self.computed.cst_obj
         for i in self._diet.s_var_set:
+            self._diet.p_model_lb[i] = self.data.dc_lb[i]
+            self._diet.p_model_ub[i] = self.data.dc_ub[i]
             self._diet.p_model_cost[i] = self.computed.dc_expenditure[i]
             self._diet.p_model_mpm[i] = self.computed.dc_mpm[i]
 
@@ -494,17 +478,18 @@ class Model:
 
     def set_batch_params(self, i):
         self.parameters.p_batch_execution_id = i
+        # self.data.setup_batch(self.parameters, self.computed)
 
     def _setup_batch(self):
         # TODO 1.4: Mudar de dataframe para o dict
         # batch_map = {"data_feed_scenario": {Feed_id: {col_name: [list_from_batch_file]}}},
         #              "data_scenario": {col_name: [list_from_batch_file]}}
         #              }
-
-        for col_name, vector in self._batch_map["data_scenario"].items():
-            self.scenario_parameters[col_name] = vector[self.parameters.p_batch_execution_id]
-        self.parameters.set_parameters(self.scenario_parameters)
-        self.data.setup_batch(self.parameters, self.computed)
+        parameters = self.parameters.init_parameters.copy()
+        for col_name, vector in self.parameters.c_batch_map["data_scenario"].items():
+            parameters[col_name] = vector[self.parameters.p_batch_execution_id]
+        self.parameters.set_parameters(parameters)
+        self.data.setup_batch(self.parameters)
 
 
 class ModelReducedCost(Model):
@@ -514,6 +499,9 @@ class ModelReducedCost(Model):
     _special_ingredient = None
     _special_id = None
     _special_cost = None
+
+    class Parameters(Model.Parameters):
+        pass
 
     def __init__(self, out_ds, parameters, special_id, special_cost=default_special_cost):
         Model.__init__(self, out_ds, parameters)
