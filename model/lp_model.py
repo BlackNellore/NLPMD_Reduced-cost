@@ -153,16 +153,17 @@ class Model:
     scenario_parameters = None
 
     class ComputedArrays:
-        n_ingredients = None
-        cost_vector = None
-        cost_obj_vector = None
-        constraints_names = None
+        # n_ingredients = None
+        # cost_vector = None
+        # cost_obj_vector = None
+        # constraints_names = None
         # revenue_obj_vector = None
         revenue = None
-        expenditure_obj_vector = None
-        dm_af_conversion = None
+        # expenditure_obj_vector = None
+        # dm_af_conversion = None
         cst_obj = None
         dc_expenditure = None
+        dc_mpm = None
 
         def __init__(self):
             pass
@@ -186,7 +187,7 @@ class Model:
         c_swg = None
         c_model_feeding_time = None
         c_model_final_weight = None
-        c_var_names_x = None
+        # c_var_names_x = None
         c_batch_map: dict = None
 
         # From outer scope
@@ -232,12 +233,13 @@ class Model:
         scenario_parameters = None
         ingredient_ids = None
         n_ingredients = None
+        dc_mp_properties = None
         dc_cost = None
         dc_ub = None
         dc_lb = None
         dc_dm_af_conversion = None
         dc_nem = None
-        dc_mpm = None
+        # dc_mpm = None
         dc_fat = None
 
         def __init__(self, out_ds, parameters):
@@ -277,30 +279,21 @@ class Model:
                                                        )
             [self.dc_dm_af_conversion,
              self.dc_nem,
-             self.dc_mpm,
              self.dc_fat,
-             mp_properties,
+             self.dc_mp_properties,
              rup,
              cp,
              ndf,
              pef] = self.ds.multi_sorted_column(self.data_feed_lib,
                                                 [self.headers_feed_lib.s_DM,
                                                  self.headers_feed_lib.s_NEma,
-                                                 [self.headers_feed_lib.s_DM,
-                                                  self.headers_feed_lib.s_TDN,
-                                                  self.headers_feed_lib.s_CP,
-                                                  self.headers_feed_lib.s_RUP,
-                                                  self.headers_feed_lib.s_Forage,
-                                                  self.headers_feed_lib.s_Fat,
-                                                  parameters.p_fat_orient],
                                                  self.headers_feed_lib.s_Fat,
                                                  [self.headers_feed_lib.s_DM,
                                                   self.headers_feed_lib.s_TDN,
                                                   self.headers_feed_lib.s_CP,
                                                   self.headers_feed_lib.s_RUP,
                                                   self.headers_feed_lib.s_Forage,
-                                                  self.headers_feed_lib.s_Fat,
-                                                  parameters.p_fat_orient],
+                                                  self.headers_feed_lib.s_Fat],
                                                  self.headers_feed_lib.s_RUP,
                                                  self.headers_feed_lib.s_CP,
                                                  self.headers_feed_lib.s_NDF,
@@ -310,11 +303,11 @@ class Model:
                                                 self.headers_feed_scenario.s_ID,
                                                 return_dict=True
                                                 )
-            self.dc_mpm = {}
+            # self.dc_mpm = {}
             self.dc_rdp = {}
             self.dc_pendf = {}
             for ids in self.ingredient_ids:
-                self.dc_mpm[ids] = nrc.mp(*mp_properties[ids])
+                # self.dc_mpm[ids] = nrc.mp(*self.dc_mp_properties[ids])
                 self.dc_rdp[ids] = (1 - rup[ids]) * cp[ids]
                 self.dc_pendf[ids] = ndf[ids] * pef[ids]
 
@@ -379,6 +372,9 @@ class Model:
 
         self.parameters.mpgr = nrc.mpg(self.parameters.c_swg, self.parameters.neg, self.parameters.p_sbw,
                                        self.parameters.c_model_final_weight, self.parameters.c_model_feeding_time)
+        self.computed.dc_mpm = {}
+        for ids in self.data.ingredient_ids:
+            self.computed.dc_mpm[ids] = nrc.mp(*self.data.dc_mp_properties[ids], self.parameters.p_fat_orient)
 
         #        self.cost_obj_vector = self.cost_vector.copy()
         self.computed.revenue = self.parameters.p_selling_price * (
@@ -394,8 +390,8 @@ class Model:
         elif self.parameters.p_obj == "MaxProfitSWG" or self.parameters.p_obj == "MinCostSWG":
             for i in self.data.ingredient_ids:
                 self.computed.dc_expenditure[i] = \
-                    - self.data.dc_cost[i] * self.parameters.dmi * self.parameters.c_model_feeding_time / (
-                            self.data.dc_dm_af_conversion[i] * self.parameters.c_swg)
+                    - self.data.dc_cost[i] * self.parameters.dmi * self.parameters.c_model_feeding_time / \
+                    (self.data.dc_dm_af_conversion[i] * self.parameters.c_swg)
 
         if self.parameters.p_obj == "MaxProfit":
             self.computed.cst_obj = self.computed.revenue
@@ -414,15 +410,17 @@ class Model:
         self._diet = pyo.ConcreteModel()
         self._diet.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT_EXPORT)  # resgatar duais
         self._diet.rc = pyo.Suffix(direction=pyo.Suffix.IMPORT_EXPORT)  # resgatar custos reduzidos
-        # Conjuntos
+
+        # Set
         self._diet.s_var_set = pyo.Set(initialize=self.data.ingredient_ids)
-        # Parametros
+
+        # Parameters
         self._diet.p_model_offset = pyo.Param(within=pyo.Any, mutable=True)
         self._diet.p_model_cost = pyo.Param(self._diet.s_var_set, within=pyo.Any, mutable=True)
         self._diet.p_model_lb = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_lb)
         self._diet.p_model_ub = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_ub)
         self._diet.p_model_nem = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_nem)
-        self._diet.p_model_mpm = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_mpm)
+        self._diet.p_model_mpm = pyo.Param(self._diet.s_var_set, within=pyo.Any, mutable=True)
         self._diet.p_model_rdp = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_rdp)
         self._diet.p_model_fat = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_fat)
         self._diet.p_model_pendf = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_pendf)
@@ -440,17 +438,19 @@ class Model:
         def bound_function(model, i):
             return (model.p_model_lb[i], model.p_model_ub[i])
 
-        # Variaveis
+        # Variables
         self._diet.v_x = pyo.Var(self._diet.s_var_set, bounds=bound_function)
-        # Objetivo
+
+        # Objective
         self._diet.f_obj = pyo.Objective(
             expr=(self._diet.p_model_offset + pyo.summation(self._diet.p_model_cost, self._diet.v_x)),
             sense=pyo.maximize)
-        # Restricoes
+
+        # Constraints
         self._diet.c_cnem_ge = pyo.Constraint(
             expr=pyo.summation(self._diet.p_model_nem, self._diet.v_x) >= self._diet.p_rhs_cnem_ge)
         self._diet.c_cnem_le = pyo.Constraint(
-            expr=pyo.summation(self._diet.p_model_nem, self._diet.v_x) >= self._diet.p_rhs_cnem_le)
+            expr=pyo.summation(self._diet.p_model_nem, self._diet.v_x) <= self._diet.p_rhs_cnem_le)
         self._diet.c_sum_1 = pyo.Constraint(expr=pyo.summation(self._diet.v_x) == self._diet.p_rhs_sum_1)
         self._diet.c_mpm = pyo.Constraint(
             expr=pyo.summation(self._diet.p_model_mpm, self._diet.v_x) >= self._diet.p_rhs_mpm)
@@ -463,13 +463,14 @@ class Model:
         self._diet.c_alt_fat_le = pyo.Constraint(
             expr=pyo.summation(self._diet.p_model_fat, self._diet.v_x) <= self._diet.p_rhs_alt_fat_le)
         self._diet.c_pendf = pyo.Constraint(
-            expr=pyo.summation(self._diet.p_model_pendf, self._diet.v_x) <= self._diet.p_rhs_pendf)
+            expr=pyo.summation(self._diet.p_model_pendf, self._diet.v_x) >= self._diet.p_rhs_pendf)
 
     def _update_model(self):
         """Update RHS values on the model based on the new CNEm and updated parameters"""
         self._diet.p_model_offset = self.computed.cst_obj
         for i in self._diet.s_var_set:
             self._diet.p_model_cost[i] = self.computed.dc_expenditure[i]
+            self._diet.p_model_mpm[i] = self.computed.dc_mpm[i]
 
         self._diet.p_rhs_cnem_ge = self.parameters.cnem * 0.999
         self._diet.p_rhs_cnem_le = self.parameters.cnem * 1.001
