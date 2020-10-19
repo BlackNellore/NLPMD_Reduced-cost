@@ -6,6 +6,7 @@ from model.nrc_equations import NRC_eq as nrc
 import logging
 import math
 import pyomo.environ as pyo
+from pyomo.opt.results import SolverResults
 
 cnem_lb, cnem_ub = 0.8, 3
 default_special_cost = 10.0
@@ -20,13 +21,13 @@ def model_factory(ds, parameters, special_product=-1):
 
 
 class Model:
-    _batch_map: dict = None
+    # _batch_map: dict = None
     # batch_map = {batch_ID:
     #                  {"data_feed_scenario": {Feed_Scenario: {Feed_id: {col_name: [list_from_batch_file]}}},
     #                   "data_scenario": {ID: {col_name: [list_from_batch_file]}}
     #                   }
     #              }
-    _diet = None
+    _diet: pyo.ConcreteModel = None
 
     _print_model_lp = False
     _print_model_lp_infeasible = False
@@ -82,60 +83,54 @@ class Model:
                              p_swg, self.parameters.dmi, self.parameters.mpmr * 0.001, self.parameters.pe_ndf]))
 
     def _solve(self, problem_id):
-        # TODO 2.2: Modificar o solve implementando as funções do Pyomo
         """Return None if solution is infeasible or Solution dict otherwise"""
         #        diet = self._diet
         solver = pyo.SolverFactory('cplex')
-        # self._diet.pprint()
-        solver.solve(self._diet)
-
-        # diet.write_lp(name="CNEm_{}.lp".format(str(self._p_cnem)))
-        #        diet.solve()
-        #         status = self._diet.get_solution_status()
-        #         logging.info("Solution status: {}".format(status))
-        #         if status.__contains__("infeasible"):
-        #             self._infeasible_output(problem_id)
-        #             return None
+        results = SolverResults()
+        results.load(solver.solve(self._diet))
+        self._diet
+        if not (results.solver.status == pyo.SolverStatus.ok or
+                pyo.TerminationCondition.optimal == results.solver.termination_condition):
+            logging.info("Solution status: {}".format(results.solver.termination_condition))
+            self._infeasible_output(problem_id)
+            return None
 
         sol_id = {"Problem_ID": problem_id,
                   "Feeding Time": self.parameters.c_model_feeding_time,
                   "Initial weight": self.parameters.p_sbw,
                   "Final weight": self.parameters.c_model_final_weight}
 
-        #        print("Funcao objetivo: ",pyo.value(model.obj))
-        # for v in model.component_objects(pyo.Var, active=True):
-        #    print("Variavel", v)
-        #    for index in v:
-        #        print ("    ", index, ": valor = ", pyo.value(v[index]),
-        #               ", custo reduzido = ", model.rc[v[index]])
-        #
-        # for c in model.component_objects(pyo.Constraint, active=True):
-        #    print("Restricao:", c,  ", dual = ", model.dual[c],
-        #          ", folga inferior = ", c.lslack(), ", folga superior =", c.uslack())
-        sol = dict(zip([i for i in self._diet.v_x], [pyo.value(self._diet.v_x[i]) for i in self._diet.v_x]))
-        sol["obj_func"] = pyo.value(self._diet.f_obj)
-        sol["obj_cost"] = - pyo.value(self._diet.f_obj) + self.computed.cst_obj
+        sol = dict(zip([i for i in self._diet.v_x], [self._diet.v_x[i].value for i in self._diet.v_x]))
+        sol["obj_func"] = self._diet.f_obj.value()
+        sol["obj_cost"] = - self._diet.f_obj.value() + self.computed.cst_obj
         if self.parameters.p_obj == "MaxProfitSWG" or self.parameters.p_obj == "MinCostSWG":
             sol["obj_cost"] *= self.parameters.c_swg
         sol["obj_revenue"] = self.computed.revenue
-        #        for i in self.ingredient_ids:
-        #            sol["obj_cost"] += pyo.value(self._diet.v_x[i]) * self.dc_cost[i]
 
         params = self._get_params(self.parameters.c_swg)
 
-        #        sol_rhs = dict(zip(["{}_rhs".format(constraint) for constraint in self.constraints_names],
-        #                           diet.get_constraints_rhs(self.constraints_names)))
+        is_active_constraints = []
+        l_slack = []
+        u_slack = []
+        duals = []
+
+        constraints_to_remove = []
+        for c in self._diet.component_objects(pyo.Constraint):
+            is_active_constraints.append(c.active)
+            if c.active:
+                duals.append(self._diet.dual[c])
+                l_slack.append(c.lslack())
+                u_slack.append(c.uslack())
+            else:
+                duals.append("None")
+                # constraints_to_remove.append(c)
+                l_slack.append("None")
+                u_slack.append("None")
+
+        # TODO Fernando completar
+
         sol_rhs = {}
         sol_rhs["fat orient"] = self.parameters.p_fat_orient
-        #        sol_red_cost = dict(zip(["{}_red_cost".format(var) for var in diet.get_variable_names()],
-        #                                diet.get_dual_reduced_costs())) #get dual values
-        #         sol_red             [self._diet.r_cost = dict(zip(["{}_red_cost".format(var) for var in self._diet.v_x],
-        # #                    c[var] for var in self._diet.v_x]))
-        #        sol_dual = dict(zip(["{}_dual".format(const) for const in diet.get_constraints_names()],
-        #                            diet.get_dual_values())) # get dual reduced costs
-        # TODO JOAO: Arrumar lslack e uslack 
-        #        sol_slack = dict(zip(["{}_slack".format(const) for const in diet.get_constraints_names()],
-        #                             diet.get_dual_linear_slacks()))
         sol = {**sol_id, **params, **sol, **sol_rhs}
         #        sol = {**sol_id, **params, **sol, **sol_rhs, **sol_activity,
         #               **sol, **sol_dual, **sol_red_cost, **sol_slack}
@@ -144,7 +139,10 @@ class Model:
         return sol
 
     def _infeasible_output(self, problem_id):
-        sol_id = {"Problem_ID": self.prefix_id + str(problem_id)}
+        sol_id = {"Problem_ID": self.prefix_id + str(problem_id),
+                  "Feeding Time": self.parameters.c_model_feeding_time,
+                  "Initial weight": self.parameters.p_sbw,
+                  "Final weight": self.parameters.c_model_final_weight}
         params = self._get_params(p_swg=None)
         sol = {**sol_id, **params}
         self.opt_sol = None
@@ -193,8 +191,8 @@ class Model:
 
         # From outer scope
         p_id, p_feed_scenario, p_batch, p_breed, p_sbw, p_feed_time, p_target_weight, p_bcs, p_be, p_l, p_sex, p_a2, \
-        p_ph, p_selling_price, p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_dmi_eq, p_obj, p_find_reduced_cost, \
-        p_ing_level \
+            p_ph, p_selling_price, p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_dmi_eq, p_obj, p_find_reduced_cost, \
+            p_ing_level \
             = [None for i in range(23)]
 
         def __init__(self, parameters):
@@ -246,7 +244,6 @@ class Model:
             self._cast_data(out_ds, parameters)
 
         def _cast_data(self, out_ds, parameters):
-            # TODO 1.0: Substituir os DataFrames por dicts
             """Retrieve parameters data from table. See data_handler.py for more"""
             self.ds = out_ds
 
@@ -324,7 +321,8 @@ class Model:
             if parameters.p_batch > 0:
                 # TODO 1.1: Aconselho a substituir esses DFs por dicts tb e manter a mesma lógica de busca
                 try:
-                    batch_feed_scenario = self.ds.batch_map[parameters.p_id]["data_feed_scenario"][parameters.p_feed_scenario]
+                    batch_feed_scenario = self.ds.batch_map[parameters.p_id]["data_feed_scenario"][
+                        parameters.p_feed_scenario]
                     # {Feed_id: {col_name: [list_from_batch_file]}}
                 except KeyError:
                     logging.warning(f"No Feed_scenario batch for scenario {parameters.p_id},"
@@ -345,7 +343,8 @@ class Model:
             for ing_id, data in parameters.c_batch_map["data_feed_scenario"].items():
                 for col_name, vector in data.items():
                     if col_name == self.headers_feed_scenario.s_feed_cost:
-                        computed.cost_vector[self.ingredient_ids.index(ing_id)] = vector[parameters.p_batch_execution_id]
+                        computed.cost_vector[self.ingredient_ids.index(ing_id)] = vector[
+                            parameters.p_batch_execution_id]
                     elif col_name == self.headers_feed_scenario.s_min:
                         self.data_feed_scenario.loc[
                             self.data_feed_scenario[self.headers_feed_scenario.s_ID] == ing_id,
@@ -365,30 +364,38 @@ class Model:
             return False
         if math.isnan(self.parameters.p_feed_time) or self.parameters.p_feed_time == 0:
             self.parameters.c_model_final_weight = self.parameters.p_target_weight
-            self.parameters.c_swg = nrc.swg(self.parameters.neg, self.parameters.p_sbw, self.parameters.c_model_final_weight)
-            self.parameters.c_model_feeding_time = (self.parameters.p_target_weight - self.parameters.p_sbw) / self.parameters.c_swg
+            self.parameters.c_swg = nrc.swg(self.parameters.neg, self.parameters.p_sbw,
+                                            self.parameters.c_model_final_weight)
+            self.parameters.c_model_feeding_time = \
+                (self.parameters.p_target_weight - self.parameters.p_sbw) / self.parameters.c_swg
         elif math.isnan(self.parameters.p_target_weight) or self.parameters.p_target_weight == 0:
             self.parameters.c_model_feeding_time = self.parameters.p_feed_time
-            self.parameters.c_swg = nrc.swg_time(self.parameters.neg, self.parameters.p_sbw, self.parameters.c_model_feeding_time)
-            self.parameters.c_model_final_weight = self.parameters.c_model_feeding_time * self.parameters.c_swg + self.parameters.p_sbw
+            self.parameters.c_swg = nrc.swg_time(self.parameters.neg, self.parameters.p_sbw,
+                                                 self.parameters.c_model_feeding_time)
+            self.parameters.c_model_final_weight = \
+                self.parameters.c_model_feeding_time * self.parameters.c_swg + self.parameters.p_sbw
         else:
             raise Exception("target weight and feeding time cannot be defined at the same time")
 
-        self.parameters.mpgr = nrc.mpg(self.parameters.c_swg, self.parameters.neg, self.parameters.p_sbw, self.parameters.c_model_final_weight, self.parameters.c_model_feeding_time)
+        self.parameters.mpgr = nrc.mpg(self.parameters.c_swg, self.parameters.neg, self.parameters.p_sbw,
+                                       self.parameters.c_model_final_weight, self.parameters.c_model_feeding_time)
 
         #        self.cost_obj_vector = self.cost_vector.copy()
-        self.computed.revenue = self.parameters.p_selling_price * (self.parameters.p_sbw + self.parameters.c_swg * self.parameters.c_model_feeding_time)
+        self.computed.revenue = self.parameters.p_selling_price * (
+                self.parameters.p_sbw + self.parameters.c_swg * self.parameters.c_model_feeding_time)
         # self.revenue_obj_vector = self.cost_vector.copy()
         self.computed.dc_expenditure = self.data.dc_cost.copy()
 
         if self.parameters.p_obj == "MaxProfit" or self.parameters.p_obj == "MinCost":
             for i in self.data.ingredient_ids:
-                self.computed.dc_expenditure[i] = - self.data.dc_cost[i] * self.parameters.dmi * self.parameters.c_model_feeding_time / \
+                self.computed.dc_expenditure[i] = - self.data.dc_cost[
+                    i] * self.parameters.dmi * self.parameters.c_model_feeding_time / \
                                                   self.data.dc_dm_af_conversion[i]
         elif self.parameters.p_obj == "MaxProfitSWG" or self.parameters.p_obj == "MinCostSWG":
             for i in self.data.ingredient_ids:
-                self.computed.dc_expenditure[i] = - self.data.dc_cost[i] * self.parameters.dmi * self.parameters.c_model_feeding_time / (
-                        self.data.dc_dm_af_conversion[i] * self.parameters.c_swg)
+                self.computed.dc_expenditure[i] = \
+                    - self.data.dc_cost[i] * self.parameters.dmi * self.parameters.c_model_feeding_time / (
+                            self.data.dc_dm_af_conversion[i] * self.parameters.c_swg)
 
         if self.parameters.p_obj == "MaxProfit":
             self.computed.cst_obj = self.computed.revenue
@@ -407,9 +414,9 @@ class Model:
         self._diet = pyo.ConcreteModel()
         self._diet.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT_EXPORT)  # resgatar duais
         self._diet.rc = pyo.Suffix(direction=pyo.Suffix.IMPORT_EXPORT)  # resgatar custos reduzidos
-        ### Conjuntos ###
+        # Conjuntos
         self._diet.s_var_set = pyo.Set(initialize=self.data.ingredient_ids)
-        ### Parametros ###
+        # Parametros
         self._diet.p_model_offset = pyo.Param(within=pyo.Any, mutable=True)
         self._diet.p_model_cost = pyo.Param(self._diet.s_var_set, within=pyo.Any, mutable=True)
         self._diet.p_model_lb = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_lb)
@@ -429,17 +436,17 @@ class Model:
         self._diet.p_rhs_alt_fat_le = pyo.Param(within=pyo.Any, mutable=True)
         self._diet.p_rhs_pendf = pyo.Param(within=pyo.Any, mutable=True)
 
-        ### Functions ###
+        # Functions
         def bound_function(model, i):
             return (model.p_model_lb[i], model.p_model_ub[i])
 
-        ### Variaveis ###
+        # Variaveis
         self._diet.v_x = pyo.Var(self._diet.s_var_set, bounds=bound_function)
-        ### Objetivo ###
+        # Objetivo
         self._diet.f_obj = pyo.Objective(
             expr=(self._diet.p_model_offset + pyo.summation(self._diet.p_model_cost, self._diet.v_x)),
             sense=pyo.maximize)
-        ### Restricoes ###
+        # Restricoes
         self._diet.c_cnem_ge = pyo.Constraint(
             expr=pyo.summation(self._diet.p_model_nem, self._diet.v_x) >= self._diet.p_rhs_cnem_ge)
         self._diet.c_cnem_le = pyo.Constraint(
@@ -497,7 +504,7 @@ class Model:
             self.scenario_parameters[col_name] = vector[self.parameters.p_batch_execution_id]
         self.parameters.set_parameters(self.scenario_parameters)
         self.data.setup_batch(self.parameters, self.computed)
-        
+
 
 class ModelReducedCost(Model):
     # TODO 1.X: Mesmas coisas que foram feitas na classe pai
