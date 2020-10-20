@@ -8,9 +8,11 @@ import math
 import pyomo.environ as pyo
 from pyomo.opt.results import SolverResults
 
-cnem_lb, cnem_ub = 0.8, 3
+# cnem_lb, cnem_ub = 0.8, 3
 default_special_cost = 10.0
-bigM = 100000
+
+
+# bigM = 100000
 
 
 def model_factory(ds, parameters, special_product=-1):
@@ -21,12 +23,7 @@ def model_factory(ds, parameters, special_product=-1):
 
 
 class Model:
-    _batch_map: dict = None
-    # batch_map = {batch_ID:
-    #                  {"data_feed_scenario": {Feed_Scenario: {Feed_id: {col_name: [list_from_batch_file]}}},
-    #                   "data_scenario": {ID: {col_name: [list_from_batch_file]}}
-    #                   }
-    #              }
+    # _batch_map: dict = None
     _diet: pyo.ConcreteModel = None
 
     _print_model_lp = False
@@ -53,7 +50,7 @@ class Model:
             self.parameters.cnem = p_cnem
             if self.parameters.p_batch > 0:
                 self._setup_batch()
-            if not self._compute_parameters(p_id):
+            if not self._compute_parameters():
                 self._infeasible_output(p_id)
                 return None
             if self._diet is None:
@@ -76,7 +73,6 @@ class Model:
 
     def _solve(self, problem_id):
         """Return None if solution is infeasible or Solution dict otherwise"""
-        #        diet = self._diet
         solver = pyo.SolverFactory('cplex')
         results = SolverResults()
         r = solver.solve(self._diet)
@@ -92,38 +88,48 @@ class Model:
                   "Initial weight": self.parameters.p_sbw,
                   "Final weight": self.parameters.c_model_final_weight}
 
-        sol = dict(zip([i for i in self._diet.v_x], [self._diet.v_x[i].value for i in self._diet.v_x]))
-        sol["obj_func"] = self._diet.f_obj.value()
-        sol["obj_cost"] = - self._diet.f_obj.value() + self.computed.cst_obj
+        params = self._get_params(self.parameters.c_swg)
+
+        sol = dict(zip(["x{}".format(i) for i in self._diet.v_x], [self._diet.v_x[i].value for i in self._diet.v_x]))
+        sol["obj_func"] = self._diet.f_obj.expr()
+        sol["obj_cost"] = - self._diet.f_obj.expr() + self.computed.cst_obj
         if self.parameters.p_obj == "MaxProfitSWG" or self.parameters.p_obj == "MinCostSWG":
             sol["obj_cost"] *= self.parameters.c_swg
         sol["obj_revenue"] = self.computed.revenue
 
-        params = self._get_params(self.parameters.c_swg)
-
         is_active_constraints = []
-        l_slack = []
-        u_slack = []
-        duals = []
+        l_slack = {}
+        u_slack = {}
+        lower = {}
+        upper = {}
+        duals = {}
 
         for c in self._diet.component_objects(pyo.Constraint):
             is_active_constraints.append(c.active)
             if c.active:
-                duals.append(self._diet.dual[c])
-                l_slack.append(c.lslack())
-                u_slack.append(c.uslack())
+                duals["{}_dual".format(c)] = self._diet.dual[c]
+                l_slack["{}_lslack".format(c)] = c.lslack()
+                u_slack["{}_uslack".format(c)] = c.uslack()
+                if c.has_lb():
+                    lower["{}_lower".format(c)] = c.lower()
+                    upper["{}_upper".format(c)] = "None"
+                else:
+                    lower["{}_lower".format(c)] = "None"
+                    upper["{}_upper".format(c)] = c.upper()
             else:
-                duals.append("None")
-                l_slack.append("None")
-                u_slack.append("None")
+                duals["{}_dual".format(c)] = "None"
+                l_slack["{}_lslack".format(c)] = "None"
+                u_slack["{}_uslack".format(c)] = "None"
+                lower["{}_lower".format(c)] = "None"
+                upper["{}_upper".format(c)] = "None"
 
-        # TODO Fernando completar
+        sol_red_cost = dict(zip(["x{}_red_cost".format(i) for i in self._diet.v_x],
+                                [self._diet.rc[self._diet.v_x[i]] for i in self._diet.v_x]))
 
-        sol_rhs = {"fat orient": self.parameters.p_fat_orient}
-        sol = {**sol_id, **params, **sol, **sol_rhs}
-        #        sol = {**sol_id, **params, **sol, **sol_rhs, **sol_activity,
-        #               **sol, **sol_dual, **sol_red_cost, **sol_slack}
-        #        self.opt_sol = diet.get_solution_obj()
+        sol_fat_orient = {"fat orient": self.parameters.p_fat_orient}
+
+        sol = {**sol_id, **params, **sol, **sol_red_cost, **duals,
+               **sol_fat_orient, **l_slack, **u_slack, **lower, **upper}
 
         return sol
 
@@ -135,18 +141,10 @@ class Model:
         params = self._get_params(p_swg=None)
         sol = {**sol_id, **params}
         self.opt_sol = None
-        # diet.write_lp(f"lp_infeasible_{str(problem_id)}.lp")
         logging.warning("Infeasible parameters:{}".format(sol))
 
     class ComputedArrays:
-        # n_ingredients = None
-        # cost_vector = None
-        # cost_obj_vector = None
-        # constraints_names = None
-        # revenue_obj_vector = None
         revenue = None
-        # expenditure_obj_vector = None
-        # dm_af_conversion = None
         cst_obj = None
         dc_expenditure = None
         dc_mpm = None
@@ -173,13 +171,12 @@ class Model:
         c_swg = None
         c_model_feeding_time = None
         c_model_final_weight = None
-        # c_var_names_x = None
         c_batch_map: dict = None
 
         # From outer scope
         p_id, p_feed_scenario, p_batch, p_breed, p_sbw, p_feed_time, p_target_weight, p_bcs, p_be, p_l, p_sex, p_a2, \
-            p_ph, p_selling_price, p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_dmi_eq, p_obj, p_find_reduced_cost, \
-            p_ing_level \
+        p_ph, p_selling_price, p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_dmi_eq, p_obj, p_find_reduced_cost, \
+        p_ing_level \
             = [None for i in range(23)]
 
         init_parameters = None
@@ -212,22 +209,20 @@ class Model:
 
     class Data:
         ds: data_handler.Data = None
-        headers_feed_lib: data_handler.Data.IngredientProperties = None  # Feed Library
-        data_feed_lib: pandas.DataFrame = None  # Feed Library
-        data_feed_scenario: pandas.DataFrame = None  # Feeds
-        headers_feed_scenario: data_handler.Data.ScenarioFeedProperties = None  # Feeds
-        data_scenario: pandas.DataFrame = None  # Scenario
+        # headers_feed_lib: data_handler.Data.IngredientProperties = None  # Feed Library
+        # data_feed_lib: pandas.DataFrame = None  # Feed Library
+        # data_feed_scenario: pandas.DataFrame = None  # Feeds
+        # headers_feed_scenario: data_handler.Data.ScenarioFeedProperties = None  # Feeds
+        # data_scenario: pandas.DataFrame = None  # Scenario
         headers_scenario: data_handler.Data.ScenarioParameters = None  # Scenario
 
         ingredient_ids = None
-        n_ingredients = None
         dc_mp_properties = None
         dc_cost = None
         dc_ub = None
         dc_lb = None
         dc_dm_af_conversion = None
         dc_nem = None
-        # dc_mpm = None
         dc_fat = None
 
         def __init__(self, out_ds, parameters):
@@ -237,27 +232,24 @@ class Model:
             """Retrieve parameters data from table. See data_handler.py for more"""
             self.ds = out_ds
 
-            self.data_feed_scenario = self.ds.data_feed_scenario
             self.headers_feed_scenario = self.ds.headers_feed_scenario
 
             headers_feed_scenario = self.ds.headers_feed_scenario
-            self.data_feed_scenario = self.ds.filter_column(self.ds.data_feed_scenario,
-                                                            self.ds.headers_feed_scenario.s_feed_scenario,
-                                                            parameters.p_feed_scenario)
-            self.data_feed_scenario = self.ds.sort_df(self.data_feed_scenario, self.headers_feed_scenario.s_ID)
+            data_feed_scenario = self.ds.filter_column(self.ds.data_feed_scenario,
+                                                       self.ds.headers_feed_scenario.s_feed_scenario,
+                                                       parameters.p_feed_scenario)
+            data_feed_scenario = self.ds.sort_df(data_feed_scenario, self.headers_feed_scenario.s_ID)
 
             self.ingredient_ids = list(
-                self.ds.get_column_data(self.data_feed_scenario, self.headers_feed_scenario.s_ID, int))
+                self.ds.get_column_data(data_feed_scenario, self.headers_feed_scenario.s_ID, int))
 
-            self.headers_feed_lib = self.ds.headers_feed_lib
-            self.data_feed_lib = self.ds.filter_column(self.ds.data_feed_lib, self.headers_feed_lib.s_ID,
-                                                       self.ingredient_ids)
-
-            self.n_ingredients = self.data_feed_scenario.shape[0]
+            headers_feed_lib = self.ds.headers_feed_lib
+            data_feed_lib = self.ds.filter_column(self.ds.data_feed_lib, headers_feed_lib.s_ID,
+                                                  self.ingredient_ids)
 
             [self.dc_cost,
              self.dc_ub,
-             self.dc_lb] = self.ds.multi_sorted_column(self.data_feed_scenario,
+             self.dc_lb] = self.ds.multi_sorted_column(data_feed_scenario,
                                                        [headers_feed_scenario.s_feed_cost,
                                                         self.headers_feed_scenario.s_max,
                                                         self.headers_feed_scenario.s_min],
@@ -272,30 +264,28 @@ class Model:
              rup,
              cp,
              ndf,
-             pef] = self.ds.multi_sorted_column(self.data_feed_lib,
-                                                [self.headers_feed_lib.s_DM,
-                                                 self.headers_feed_lib.s_NEma,
-                                                 self.headers_feed_lib.s_Fat,
-                                                 [self.headers_feed_lib.s_DM,
-                                                  self.headers_feed_lib.s_TDN,
-                                                  self.headers_feed_lib.s_CP,
-                                                  self.headers_feed_lib.s_RUP,
-                                                  self.headers_feed_lib.s_Forage,
-                                                  self.headers_feed_lib.s_Fat],
-                                                 self.headers_feed_lib.s_RUP,
-                                                 self.headers_feed_lib.s_CP,
-                                                 self.headers_feed_lib.s_NDF,
-                                                 self.headers_feed_lib.s_pef
+             pef] = self.ds.multi_sorted_column(data_feed_lib,
+                                                [headers_feed_lib.s_DM,
+                                                 headers_feed_lib.s_NEma,
+                                                 headers_feed_lib.s_Fat,
+                                                 [headers_feed_lib.s_DM,
+                                                  headers_feed_lib.s_TDN,
+                                                  headers_feed_lib.s_CP,
+                                                  headers_feed_lib.s_RUP,
+                                                  headers_feed_lib.s_Forage,
+                                                  headers_feed_lib.s_Fat],
+                                                 headers_feed_lib.s_RUP,
+                                                 headers_feed_lib.s_CP,
+                                                 headers_feed_lib.s_NDF,
+                                                 headers_feed_lib.s_pef
                                                  ],
                                                 self.ingredient_ids,
                                                 self.headers_feed_scenario.s_ID,
                                                 return_dict=True
                                                 )
-            # self.dc_mpm = {}
             self.dc_rdp = {}
             self.dc_pendf = {}
             for ids in self.ingredient_ids:
-                # self.dc_mpm[ids] = nrc.mp(*self.dc_mp_properties[ids])
                 self.dc_rdp[ids] = (1 - rup[ids]) * cp[ids]
                 self.dc_pendf[ids] = ndf[ids] * pef[ids]
 
@@ -304,14 +294,12 @@ class Model:
                 try:
                     batch_feed_scenario = self.ds.batch_map[parameters.p_id]["data_feed_scenario"][
                         parameters.p_feed_scenario]
-                    # {Feed_id: {col_name: [list_from_batch_file]}}
                 except KeyError:
                     logging.warning(f"No Feed_scenario batch for scenario {parameters.p_id},"
                                     f" batch {parameters.p_batch}, feed_scenario{parameters.p_feed_scenario}")
                     batch_feed_scenario = {}
                 try:
                     batch_scenario = self.ds.batch_map[parameters.p_id]["data_scenario"][parameters.p_id]
-                    # {col_name: [list_from_batch_file]}}
                 except KeyError:
                     logging.warning(f"No Scenario batch for scenario {parameters.p_id},"
                                     f" batch {parameters.p_batch}, scenario{parameters.p_feed_scenario}")
@@ -331,7 +319,7 @@ class Model:
                     elif col_name == self.headers_feed_scenario.s_max:
                         self.dc_ub[ing_id] = vector[parameters.p_batch_execution_id]
 
-    def _compute_parameters(self, problem_id):
+    def _compute_parameters(self):
         """Compute parameters variable with CNEm"""
         self.parameters.compute_nrc_parameters()
 
@@ -358,10 +346,8 @@ class Model:
         for ids in self.data.ingredient_ids:
             self.computed.dc_mpm[ids] = nrc.mp(*self.data.dc_mp_properties[ids], self.parameters.p_fat_orient)
 
-        #        self.cost_obj_vector = self.cost_vector.copy()
         self.computed.revenue = self.parameters.p_selling_price * (
                 self.parameters.p_sbw + self.parameters.c_swg * self.parameters.c_model_feeding_time)
-        # self.revenue_obj_vector = self.cost_vector.copy()
         self.computed.dc_expenditure = self.data.dc_cost.copy()
 
         if self.parameters.p_obj == "MaxProfit" or self.parameters.p_obj == "MinCost":
@@ -387,8 +373,6 @@ class Model:
     def _build_model(self):
         # TODO 2.0: Implementar construção do modelo pelo Pyomo
         """Build model (initially based on CPLEX 12.8.1)"""
-        #        self._remove_inf(self.dc_cost) PRECISA ARRUMAR
-
         self._diet = pyo.ConcreteModel()
         self._diet.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT_EXPORT)  # resgatar duais
         self._diet.rc = pyo.Suffix(direction=pyo.Suffix.IMPORT_EXPORT)  # resgatar custos reduzidos
@@ -478,13 +462,8 @@ class Model:
 
     def set_batch_params(self, i):
         self.parameters.p_batch_execution_id = i
-        # self.data.setup_batch(self.parameters, self.computed)
 
     def _setup_batch(self):
-        # TODO 1.4: Mudar de dataframe para o dict
-        # batch_map = {"data_feed_scenario": {Feed_id: {col_name: [list_from_batch_file]}}},
-        #              "data_scenario": {col_name: [list_from_batch_file]}}
-        #              }
         parameters = self.parameters.init_parameters.copy()
         for col_name, vector in self.parameters.c_batch_map["data_scenario"].items():
             parameters[col_name] = vector[self.parameters.p_batch_execution_id]
@@ -493,43 +472,28 @@ class Model:
 
 
 class ModelReducedCost(Model):
-    # TODO 1.X: Mesmas coisas que foram feitas na classe pai
-    # TODO 2.X: Mesmas coisas que foram feitas na classe pai
-
-    _special_ingredient = None
     _special_id = None
     _special_cost = None
-
-    class Parameters(Model.Parameters):
-        pass
 
     def __init__(self, out_ds, parameters, special_id, special_cost=default_special_cost):
         Model.__init__(self, out_ds, parameters)
         self._special_id = special_id
-        for i in range(len(self.ingredient_ids)):
-            if self.ingredient_ids[i] == self._special_id:
-                self._special_ingredient = i
         self._special_cost = special_cost
 
     def _solve(self, problem_id):
         sol = Model._solve(self, problem_id)
-        sol["x" + str(self._special_id) + "_price_" + str(int(100 * self.p_ing_level))] = self._special_cost
+        sol["x" + str(self._special_id) + "_price_" + str(int(100 * self.parameters.p_ing_level))] = self._special_cost
         return sol
 
-    def _compute_parameters(self, problem_id):
-        if not Model._compute_parameters(self, problem_id):
+    def _compute_parameters(self):
+        if not Model._compute_parameters(self):
             return False
         else:
-            self.cost_obj_vector[self._special_ingredient] = self._special_cost / self.dm_af_conversion[
-                self._special_ingredient]
-            self.expenditure_obj_vector[self._special_ingredient] = self.cost_obj_vector[
-                                                                        self._special_ingredient] * self._p_dmi * self._model_feeding_time
-
-            if self.p_obj == "MaxProfit" or self.p_obj == "MinCost":
-                self.cost_obj_vector[self._special_ingredient] = - self.expenditure_obj_vector[self._special_ingredient]
-            elif self.p_obj == "MaxProfitSWG" or self.p_obj == "MinCostSWG":
-                self.cost_obj_vector[self._special_ingredient] = -(
-                    self.expenditure_obj_vector[self._special_ingredient]) / self._p_swg
+            self.data.dc_cost[self._special_id] = self._special_cost
+            self.computed.dc_expenditure[self._special_id] = - self.data.dc_cost[self._special_id] * \
+                self.parameters.dmi * self.parameters.c_model_feeding_time / self.data.dc_dm_af_conversion[self._special_id]
+            if self.parameters.p_obj == "MaxProfitSWG" or self.parameters.p_obj == "MinCostSWG":
+                self.computed.dc_expenditure[self._special_id] /= self.parameters.c_swg
             return True
 
     def set_special_cost(self, cost=default_special_cost):
@@ -540,6 +504,3 @@ class ModelReducedCost(Model):
 
     def get_special_id(self):
         return self._special_id
-
-    def get_special_ingredient(self):
-        return self._special_ingredient
