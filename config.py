@@ -61,4 +61,4 @@ INPUT_FILE = {'filename': {'name': 'input.xlsx'},
 
               }
 OUTPUT_FILE = 'output.xlsx'
-SOLVER = 'HiGHS'
+SOLVER = 'glpk'

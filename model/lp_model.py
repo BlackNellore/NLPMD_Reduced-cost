@@ -1,6 +1,8 @@
 """ Mathematical model """
 # from optimizer import optimizer
 import pandas
+
+from config import SOLVER
 from model import data_handler
 from model.nrc_equations import NRC_eq as nrc
 import logging
@@ -8,11 +10,7 @@ import math
 import pyomo.environ as pyo
 from pyomo.opt.results import SolverResults
 
-# cnem_lb, cnem_ub = 0.8, 3
 default_special_cost = 10.0
-
-
-# bigM = 100000
 
 
 def model_factory(ds, parameters, special_product=-1):
@@ -23,7 +21,6 @@ def model_factory(ds, parameters, special_product=-1):
 
 
 class Model:
-    # _batch_map: dict = None
     _diet: pyo.ConcreteModel = None
 
     _print_model_lp = False
@@ -73,7 +70,7 @@ class Model:
 
     def _solve(self, problem_id):
         """Return None if solution is infeasible or Solution dict otherwise"""
-        solver = pyo.SolverFactory('cplex')
+        solver = pyo.SolverFactory(SOLVER)
         results = SolverResults()
         r = solver.solve(self._diet)
         results.load(r)
@@ -209,11 +206,6 @@ class Model:
 
     class Data:
         ds: data_handler.Data = None
-        # headers_feed_lib: data_handler.Data.IngredientProperties = None  # Feed Library
-        # data_feed_lib: pandas.DataFrame = None  # Feed Library
-        # data_feed_scenario: pandas.DataFrame = None  # Feeds
-        # headers_feed_scenario: data_handler.Data.ScenarioFeedProperties = None  # Feeds
-        # data_scenario: pandas.DataFrame = None  # Scenario
         headers_scenario: data_handler.Data.ScenarioParameters = None  # Scenario
 
         ingredient_ids = None
@@ -290,7 +282,6 @@ class Model:
                 self.dc_pendf[ids] = ndf[ids] * pef[ids]
 
             if parameters.p_batch > 0:
-                # TODO 1.1: Aconselho a substituir esses DFs por dicts tb e manter a mesma lógica de busca
                 try:
                     batch_feed_scenario = self.ds.batch_map[parameters.p_id]["data_feed_scenario"][
                         parameters.p_feed_scenario]
@@ -371,11 +362,10 @@ class Model:
         return True
 
     def _build_model(self):
-        # TODO 2.0: Implementar construção do modelo pelo Pyomo
-        """Build model (initially based on CPLEX 12.8.1)"""
+        """Build model"""
         self._diet = pyo.ConcreteModel()
-        self._diet.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT_EXPORT)  # resgatar duais
-        self._diet.rc = pyo.Suffix(direction=pyo.Suffix.IMPORT_EXPORT)  # resgatar custos reduzidos
+        self._diet.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT_EXPORT)
+        self._diet.rc = pyo.Suffix(direction=pyo.Suffix.IMPORT_EXPORT)
 
         # Set
         self._diet.s_var_set = pyo.Set(initialize=self.data.ingredient_ids)
@@ -482,7 +472,7 @@ class ModelReducedCost(Model):
 
     def _solve(self, problem_id):
         sol = Model._solve(self, problem_id)
-        sol["x" + str(self._special_id) + "_price_" + str(int(100 * self.parameters.p_ing_level))] = self._special_cost
+        sol["x{0}_price_{1}".format(self._special_id, str(int(100 * self.parameters.p_ing_level)))] = self._special_cost
         return sol
 
     def _compute_parameters(self):
