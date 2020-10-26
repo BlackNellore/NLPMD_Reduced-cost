@@ -27,7 +27,6 @@ class Model:
     _print_model_lp_infeasible = False
     _print_solution_xml = False
 
-    opt_sol = None
     prefix_id = ""
 
     data = None
@@ -43,7 +42,6 @@ class Model:
         """Either build or update model, solve it and return solution = {dict xor None}"""
         logging.info("Populating and running model")
         try:
-            self.opt_sol = None
             self.parameters.cnem = p_cnem
             if self.parameters.p_batch > 0:
                 self._setup_batch()
@@ -137,7 +135,6 @@ class Model:
                   "Final weight": self.parameters.c_model_final_weight}
         params = self._get_params(p_swg=None)
         sol = {**sol_id, **params}
-        self.opt_sol = None
         logging.warning("Infeasible parameters:{}".format(sol))
 
     class ComputedArrays:
