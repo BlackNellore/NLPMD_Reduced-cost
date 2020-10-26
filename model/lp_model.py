@@ -68,9 +68,21 @@ class Model:
 
     def _solve(self, problem_id):
         """Return None if solution is infeasible or Solution dict otherwise"""
-        solver = pyo.SolverFactory(SOLVER)
+        if SOLVER == "" or SOLVER == None:
+            if pyo.SolverFactory('cplex').available():
+                slv = pyo.SolverFactory('cplex')
+            elif pyo.SolverFactory('glpk').available():
+                slv = pyo.SolverFactory('glpk')
+            else:
+                raise Exception("Solver not available")
+        else:
+            if pyo.SolverFactory(SOLVER).available():
+                slv = pyo.SolverFactory(SOLVER)
+            else:
+                raise Exception("Solver not available")
+
         results = SolverResults()
-        r = solver.solve(self._diet)
+        r = slv.solve(self._diet)
         results.load(r)
         if not (results.solver.status == pyo.SolverStatus.ok or
                 pyo.TerminationCondition.optimal == results.solver.termination_condition):
