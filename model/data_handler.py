@@ -105,7 +105,6 @@ class Data:
         s_RUP: str
         s_pef: str
 
-
     headers_feed_lib: IngredientProperties = None  # Feed Library
     headers_feed_scenario: ScenarioFeedProperties = None  # Feeds
     headers_scenario: ScenarioParameters = None  # Scenario
@@ -121,12 +120,6 @@ class Data:
     batchScenarioCandidate = None
     batchFeedScenarioCandidate = None
 
-    # TODO: preencher o batch_map nessa estrutura:
-    # batch_map = {batch_ID:
-    #                  {"data_feed_scenario": {Feed_Scenario: {Feed_id: {col_name: [list_from_batch_file]}}},
-    #                   "data_scenario": {ID: {col_name: [list_from_batch_file]}}
-    #                   }
-    #              }
     batch_map = None
 
     def __init__(self,
@@ -141,17 +134,16 @@ class Data:
         :param sheet_* : {'name', 'headers'}
         """
         excel_file = pandas.ExcelFile(filename['name'])
-        # TODO: Be sure that everything is on the same order
 
         # Feed Library Sheet
         data_feed_lib = pandas.read_excel(excel_file, sheet_feed_lib['name'])
         self.headers_feed_lib = self.IngredientProperties(*(list(data_feed_lib)))
-        data_feed_lib.astype({self.headers_feed_lib.s_ID: 'int64'}).dtypes
+        # data_feed_lib.astype({self.headers_feed_lib.s_ID: 'int64'}).dtypes
 
         # Feeds scenarios
         self.data_feed_scenario = pandas.read_excel(excel_file, sheet_feeds['name'])
         self.headers_feed_scenario = self.ScenarioFeedProperties(*(list(self.data_feed_scenario)))
-        self.data_feed_scenario.astype({self.headers_feed_scenario.s_ID: 'int64'}).dtypes
+        # self.data_feed_scenario.astype({self.headers_feed_scenario.s_ID: 'int64'}).dtypes
 
         # Filters feed library with the feeds on the scenario
         filter_ingredients_ids = \
@@ -161,17 +153,15 @@ class Data:
                                                 unwrap_list(filter_ingredients_ids),
                                                 int64=True)
 
-        # TODO Check if all ingredients exist in the library.
-
         # Sheet Scenario
         self.data_scenario = pandas.read_excel(excel_file, sheet_scenario['name'])
         self.headers_scenario = self.ScenarioParameters(*(list(self.data_scenario)))
-        self.data_scenario.astype({self.headers_scenario.s_id: 'int64'}).dtypes
+        # self.data_scenario.astype({self.headers_scenario.s_id: 'int64'}).dtypes
 
         # Sheet batch
         self.data_batch = pandas.read_excel(excel_file, sheet_batch['name'])
         self.headers_batch = self.BatchParameters(*(list(self.data_batch)))
-        self.data_batch.astype({self.headers_batch.s_batch_id: 'int64'}).dtypes
+        # self.data_batch.astype({self.headers_batch.s_batch_id: 'int64'}).dtypes
 
         # csv files
         csv_file_names = dict(zip(unwrap_list(self.data_batch.filter(items=[self.headers_batch.s_batch_id]).values),
@@ -228,10 +218,10 @@ class Data:
             for h_feed_scn in self.batchFeedScenarioCandidate:
                 for j, val in enumerate(list(subset_feed[h_feed_scn])):
                     if type(val) is str:
-                        if not feed_scn in batch_data_feed_scenario:
+                        if feed_scn not in batch_data_feed_scenario:
                             batch_data_feed_scenario[feed_scn] = {}
                         feed_id = list(subset_feed[self.headers_feed_scenario.s_ID])[j]
-                        if not feed_id in batch_data_feed_scenario[feed_scn]:
+                        if feed_id not in batch_data_feed_scenario[feed_scn]:
                             batch_data_feed_scenario[feed_scn][feed_id] = {}
                         batch_name = csv_file_names[batch_id]
                         initial = list(self.filter_column(self.data_batch,
@@ -269,7 +259,6 @@ class Data:
                                                             [initial, final]))
             self.batch_map[id]["data_scenario"] = batch_data_scenario
 
-
         # checking if config.py is consistent with Excel headers
         check_list = [(sheet_feed_lib, self.headers_feed_lib),
                       (sheet_feeds, self.headers_feed_scenario),
@@ -282,9 +271,10 @@ class Data:
                     raise IOError(sheet[0]['name'])
         except IOError as e:
             logging.error("Headers in config.py don't match header in Excel file:{}".format(e.args))
-            [self.headers_feed_lib,
-             self.headers_feed_scenario,
-             self.headers_scenario] = [None for i in range(3)]
+            # DO NOT DELETE - 20/10/2020
+            # [self.headers_feed_lib,
+            #  self.headers_feed_scenario,
+            #  self.headers_scenario] = [None, None, None]
             raise IOError(e)
 
         # Saving info in the log
@@ -302,7 +292,11 @@ class Data:
     def headers(self):
         """
         Return datasets' headers
-        :return list : [headers_feed_lib, headers_feed_scenario, headers_scenario, headers_lca_lib, headers_lca_scenario]
+        :return list : [headers_feed_lib,
+                        headers_feed_scenario,
+                        headers_scenario,
+                        headers_lca_lib,
+                        headers_lca_scenario]
         """
         return [self.headers_feed_lib,
                 self.headers_feed_scenario,
@@ -319,12 +313,13 @@ class Data:
         """ Filter elements in data_frame where col_name == val or in [val]"""
         if int64:
             try:
-                if isinstance(val,list):
+                if isinstance(val, list):
                     val = list(map(int, val))
                     return data_frame.mask(col_name, val)
                 else:
                     return data_frame.mask(col_name, int(val))
-            except Exception as e:
+            except TypeError:
+                # TODO I didn't check, maybe the exception treated is wrong
                 return data_frame.mask(col_name, val)
         else:
             return data_frame.mask(col_name, val)
@@ -359,10 +354,10 @@ class Data:
             else:
                 return unwrap_list(ds)
 
-    def get_dict_data(self, dataFrame, header, base_list, base_header):
-        keys = list(self.get_column_data(dataFrame, base_header))
-        vals = list(self.get_column_data(dataFrame, header))
-        return dict(zip(keys, vals))
+    # def get_dict_data(self, dataframe, header, base_list, base_header):
+    #     keys = list(self.get_column_data(dataframe, base_header))
+    #     vals = list(self.get_column_data(dataframe, header))
+    #     return dict(zip(keys, vals))
 
     @staticmethod
     def map_values(headers, vals):
@@ -417,52 +412,11 @@ class Data:
         return all_dicts
 
 
-    class Dict_Parser():
-        # TODO
-        costs: dict = None
-        nem: dict = None
-        neg: dict = None
-
-        def __init__(self, id, feed_scenario, batch):
-            self.data_feed_scenario = self.ds.data_feed_scenario
-            self.headers_feed_scenario = self.ds.headers_feed_scenario
-
-            headers_feed_scenario = self.ds.headers_feed_scenario
-            self.data_feed_scenario = self.ds.filter_column(self.ds.data_feed_scenario,
-                                                            self.ds.headers_feed_scenario.s_feed_scenario,
-                                                            feed_scenario)
-            self.data_feed_scenario = self.ds.sort_df(self.data_feed_scenario, self.headers_feed_scenario.s_ID)
-
-
-            self.costs = None
-            # TODO
-
-
-            self.ingredient_ids = list(
-                self.ds.get_column_data(self.data_feed_scenario, self.headers_feed_scenario.s_ID, int))
-
-            self.headers_feed_lib = self.ds.headers_feed_lib
-            self.data_feed_lib = self.ds.filter_column(self.ds.data_feed_lib, self.headers_feed_lib.s_ID,
-                                                       self.ingredient_ids)
-
-            self.cost_vector = self.ds.sorted_column(self.data_feed_scenario, self.headers_feed_scenario.s_feed_cost,
-                                                     self.ingredient_ids,
-                                                     self.headers_feed_scenario.s_ID)
-            self.n_ingredients = self.data_feed_scenario.shape[0]
-            self.cost_vector = self.ds.sorted_column(self.data_feed_scenario, headers_feed_scenario.s_feed_cost,
-                                                     self.ingredient_ids,
-                                                     self.headers_feed_scenario.s_ID)
-            self.dm_af_coversion = self.ds.sorted_column(self.data_feed_lib, self.headers_feed_lib.s_DM,
-                                                         self.ingredient_ids,
-                                                         self.headers_feed_lib.s_ID)
-            pass
-
-
 if __name__ == "__main__":
     print("hello data_handler")
     test_ds = Data(filename="../Input.xlsx",
                    sheet_feed_lib="Feed Library",
                    sheet_feeds="Feeds",
                    sheet_scenario="Scenario",
-                   sheet_batch = "Batch"
+                   sheet_batch="Batch"
                    )

@@ -2,15 +2,17 @@
 # from optimizer import optimizer
 import pandas
 
-from config import SOLVER
+from config import SOLVER, RNS_FEED_PARAMETERS
 from model import data_handler
-from model.nrc_equations import NRC_eq as nrc
+from model.nrc_equations import NRC_eq
 import logging
 import math
 import pyomo.environ as pyo
 from pyomo.opt.results import SolverResults
 
 default_special_cost = 10.0
+
+nrc = NRC_eq(**RNS_FEED_PARAMETERS)
 
 
 def model_factory(ds, parameters, special_product=-1):
@@ -84,8 +86,8 @@ class Model:
         results = SolverResults()
         r = slv.solve(self._diet)
         results.load(r)
-        if not (results.solver.status == pyo.SolverStatus.ok or
-                pyo.TerminationCondition.optimal == results.solver.termination_condition):
+        if not (results.solver.status == pyo.SolverStatus.ok and
+                results.solver.termination_condition == pyo.TerminationCondition.optimal):
             logging.info("Solution status: {}".format(results.solver.termination_condition))
             self._infeasible_output(problem_id)
             return None
@@ -343,8 +345,10 @@ class Model:
         self.parameters.mpgr = nrc.mpg(self.parameters.c_swg, self.parameters.neg, self.parameters.p_sbw,
                                        self.parameters.c_model_final_weight, self.parameters.c_model_feeding_time)
         self.computed.dc_mpm = {}
-        for ids in self.data.ingredient_ids:
-            self.computed.dc_mpm[ids] = nrc.mp(*self.data.dc_mp_properties[ids], self.parameters.p_fat_orient)
+        for id in self.data.ingredient_ids:
+            self.computed.dc_mpm[id] = nrc.mp(id,
+                                              *self.data.dc_mp_properties[id],
+                                              self.parameters.p_fat_orient)
 
         self.computed.revenue = self.parameters.p_selling_price * (
                 self.parameters.p_sbw + self.parameters.c_swg * self.parameters.c_model_feeding_time)
@@ -447,7 +451,7 @@ class Model:
         self._diet.p_rhs_fat = 0.06
         self._diet.p_rhs_alt_fat_ge = 0.039
         self._diet.p_rhs_alt_fat_le = 0.039
-        self._diet.p_rhs_pendf = self.parameters.pe_ndf
+        self._diet.p_rhs_pendf = self.parameters.pe_ndf / self.parameters.dmi
 
         if self.parameters.p_fat_orient == "G":
             self._diet.c_alt_fat_ge.activate()
@@ -490,7 +494,7 @@ class ModelReducedCost(Model):
         else:
             self.data.dc_cost[self._special_id] = self._special_cost
             self.computed.dc_expenditure[self._special_id] = - self.data.dc_cost[self._special_id] * \
-                self.parameters.dmi * self.parameters.c_model_feeding_time / self.data.dc_dm_af_conversion[self._special_id]
+                                                             self.parameters.dmi * self.parameters.c_model_feeding_time / self.data.dc_dm_af_conversion[self._special_id]
             if self.parameters.p_obj == "MaxProfitSWG" or self.parameters.p_obj == "MinCostSWG":
                 self.computed.dc_expenditure[self._special_id] /= self.parameters.c_swg
             return True

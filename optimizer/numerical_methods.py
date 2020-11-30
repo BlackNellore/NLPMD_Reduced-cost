@@ -7,6 +7,7 @@ Status = Enum('Status', 'EMPTY READY SOLVED ERROR')
 
 default_fat_list = ["G", "L"]
 
+
 class Searcher:
     _model: Model = None
     _obj_func_key = None
@@ -54,7 +55,10 @@ class Searcher:
         if new_v is None:
             return new_v
         else:
-            return new_v['CNEm']
+            if 'CNEm' in new_v:
+                return new_v['CNEm']
+            else:
+                raise RuntimeError('key not found in dict')
 
     def brute_force_search(self, lb, ub, p_tol, uncertain_bounds=False):
         """Executes brute force search algorithm"""
@@ -74,7 +78,7 @@ class Searcher:
         return bf_results
 
     @staticmethod
-    def __brute_force(f, search_space, first_feasible=False):
+    def __brute_force(f, search_space, first_feasible=False) -> list or None:
         """
         Run Brute Force algorithm in a function f. In this model f is lp_model.Model.run()
         """
@@ -163,7 +167,7 @@ class Searcher:
                     f, c, b, results, p_id+1, tol, h * inv_phi, c=d, fc=fd)
         except TypeError as e:
             logging.error("An error occurred in GSS method:\n{}".format(e))
-            raise(e)
+            raise e
             return None, None
 
     def run_scenario(self, algorithm, lb, ub, tol, uncertain_bounds=True, find_red_cost=False):   
