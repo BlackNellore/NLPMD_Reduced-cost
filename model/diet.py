@@ -47,7 +47,10 @@ class Diet:
             logging.info("{}".format(parameters))
 
             logging.info("Initializing model")
-            model = model_factory(ds, parameters, parameters[headers_scenario.s_find_reduced_cost])
+            model = model_factory(ds,
+                                  parameters,
+                                  parameters[headers_scenario.s_find_reduced_cost],
+                                  parameters[headers_scenario.s_lca_id])
             logging.info("Initializing numerical methods")
             optimizer = Searcher(model, batch)
             
@@ -110,7 +113,7 @@ class Diet:
         if parameters[headers_scenario.s_find_reduced_cost] > 0:
             optimizer.search_reduced_cost(algorithm, lb, ub, tol, parameters[headers_scenario.s_ing_level])
         else:
-            optimizer.run_scenario(algorithm, lb, ub, tol)
+            optimizer.run_scenario(algorithm, lb, ub, tol, parameters[headers_scenario.s_lca_id])
 
     def __multi_scenario(self, optimizer, parameters, lb, ub, tol):
         optimizer.clear_searcher(force=True)
@@ -128,8 +131,9 @@ class Diet:
     @staticmethod
     def store_results(optimizer, parameters):
         logging.info("Saving solution locally")
-        status, solution = optimizer.get_results()
-        if status == Status.SOLVED:
+        lca_id = parameters[headers_scenario.s_lca_id]
+        status, solution = optimizer.get_sol_results(lca_id, None, False)
+        if status == Status.SOLVED or lca_id > 0:
             _output.save_as_csv(name=str(parameters[headers_scenario.s_identifier]), solution=solution)
         else:
             logging.warning("Bad Status: {0}, {1}".format(status, parameters))

@@ -17,7 +17,6 @@ def config():
     if platform.system() in ('Windows', 'Microsoft'):
         highslib = ctypes.cdll.LoadLibrary("./optimizer/resources/highs.dll")
     else:
-        # TODO: Implement call to LINUX .so solver
         raise SystemError("Only windows dll available")
 
     highslib.Highs_call.argtypes = (ctypes.c_int, ctypes.c_int, ctypes.c_int,

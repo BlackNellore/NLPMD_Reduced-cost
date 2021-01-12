@@ -64,6 +64,7 @@ class Data:
         s_obj: str
         s_find_reduced_cost: str
         s_ing_level: str
+        s_lca_id: str
 
     # Sheet Feeds
     class ScenarioFeedProperties(NamedTuple):
@@ -105,6 +106,30 @@ class Data:
         s_RUP: str
         s_pef: str
 
+    # Sheet LCA Library
+    class LCALib(NamedTuple):
+        s_ing_id: str
+        s_name: str
+        s_LCA_phosphorus: str
+        s_LCA_renewable_fossil: str
+        s_LCA_GHG: str
+        s_LCA_acidification: str
+        s_LCA_eutrophication: str
+        s_LCA_land_competition: str
+
+    # Sheet LCA Scenario
+    class LCAScenario(NamedTuple):
+        s_ID: str
+        s_LCA_phosphorus_weight: str
+        s_LCA_renewable_fossil_weight: str
+        s_LCA_GHG_weight: str
+        s_LCA_acidification_weight: str
+        s_LCA_eutrophication_weight: str
+        s_LCA_land_competition_weight: str
+        s_Methane_Equation: str
+        s_N2O_Equation: str
+        s_Normalize: str
+
     headers_feed_lib: IngredientProperties = None  # Feed Library
     headers_feed_scenario: ScenarioFeedProperties = None  # Feeds
     headers_scenario: ScenarioParameters = None  # Scenario
@@ -114,6 +139,11 @@ class Data:
     data_feed_scenario: pandas.DataFrame = None  # Feeds
     data_scenario: pandas.DataFrame = None  # Scenario
     data_batch: pandas.DataFrame = None  # Batch
+
+    headers_lca_scenario: LCAScenario = None  # LCA
+    data_lca_scenario: pandas.DataFrame = None  # LCA
+    headers_lca_lib: LCALib = None  # LCA
+    data_lca_lib: pandas.DataFrame = None  # LCA Library
 
     data_series = {}  # batch dictionary
 
@@ -127,7 +157,9 @@ class Data:
                  sheet_feed_lib,
                  sheet_feeds,
                  sheet_scenario,
-                 sheet_batch):
+                 sheet_batch,
+                 sheet_lca,
+                 sheet_lca_lib):
         """
         Read excel file
         :param filename : {'name'}
@@ -175,8 +207,6 @@ class Data:
                                              self.headers_scenario.s_batch,
                                              batch_ids,
                                              int64=True)
-        # # remove from data_scenario all batch rows
-        # self.data_scenario = self.data_scenario.drop(batch_scenarios.index.values, axis=0)
 
         # filter batch executions from data_feed_scenario
         feed_scenarios_id = unwrap_list(batch_scenarios.filter(items=[self.headers_scenario.s_feed_scenario]).values)
@@ -184,10 +214,6 @@ class Data:
                                                   self.headers_feed_scenario.s_feed_scenario,
                                                   feed_scenarios_id,
                                                   int64=True)
-        # remove from data_feed_scenario all batch rows
-        # self.data_feed_scenario = self.data_feed_scenario.drop(batch_feed_scenarios.index.values, axis=0)
-
-        # feed_scenarios_ids = list(batch_feed_scenarios['Feed Scenario'])
 
         self.batchScenarioCandidate = [self.headers_scenario.s_sbw, self.headers_scenario.s_bcs,
                                        self.headers_scenario.s_be, self.headers_scenario.s_l,
@@ -199,15 +225,14 @@ class Data:
 
         list_batch_id = unwrap_list(batch_scenarios.filter(items=[self.headers_scenario.s_id]).values)
 
-        self.batch_map = dict(zip(list_batch_id,
-                                  [None for i in range(batch_scenarios.shape[0])]))
+        self.batch_map = dict(zip(list_batch_id, [None] * batch_scenarios.shape[0]))
 
-        for id in self.batch_map.keys():
-            self.batch_map[id] = {"data_feed_scenario": {}, "data_scenario": {}}
+        for batch_id in self.batch_map.keys():
+            self.batch_map[batch_id] = {"data_feed_scenario": {}, "data_scenario": {}}
             batch_data_feed_scenario = {}
             row = self.filter_column(batch_scenarios,
                                      self.headers_scenario.s_id,
-                                     id,
+                                     batch_id,
                                      int64=True)
             feed_scn = list(row[self.headers_scenario.s_feed_scenario])[0]
             batch_id = list(row[self.headers_scenario.s_batch])[0]
@@ -236,14 +261,14 @@ class Data:
                             list(self.get_series_from_batch(self.data_series[batch_name],
                                                             val,
                                                             [initial, final]))
-            self.batch_map[id]["data_feed_scenario"] = batch_data_feed_scenario
+            self.batch_map[batch_id]["data_feed_scenario"] = batch_data_feed_scenario
 
             batch_data_scenario = {}
             for h_scn in self.batchScenarioCandidate:
                 for j, val in enumerate(list(row[h_scn])):
                     if type(val) is str:
-                        if not id in batch_data_scenario:
-                            batch_data_scenario[id] = {}
+                        if batch_id not in batch_data_scenario:
+                            batch_data_scenario[batch_id] = {}
                         batch_name = csv_file_names[batch_id]
                         initial = list(self.filter_column(self.data_batch,
                                                           self.headers_batch.s_batch_id,
@@ -253,22 +278,38 @@ class Data:
                                                         self.headers_batch.s_batch_id,
                                                         batch_id,
                                                         int64=True)[self.headers_batch.s_final_period])[0]
-                        batch_data_scenario[id][h_scn] = \
+                        batch_data_scenario[batch_id][h_scn] = \
                             list(self.get_series_from_batch(self.data_series[batch_name],
                                                             val,
                                                             [initial, final]))
-            self.batch_map[id]["data_scenario"] = batch_data_scenario
+            self.batch_map[batch_id]["data_scenario"] = batch_data_scenario
+
+        # LCA Sheet
+        self.data_lca_scenario = pandas.read_excel(excel_file, sheet_lca['name'])
+        self.headers_lca_scenario = self.LCAScenario(*(list(self.data_lca_scenario)))
+
+        # LCA Library Sheet
+        data_lca_lib = pandas.read_excel(excel_file, sheet_lca_lib['name'])
+        self.headers_lca_lib = self.LCALib(*(list(data_lca_lib)))
+
+        self.data_lca_lib = self.filter_column(data_lca_lib,
+                                               self.headers_lca_lib.s_ing_id,
+                                               unwrap_list(filter_ingredients_ids))
 
         # checking if config.py is consistent with Excel headers
         check_list = [(sheet_feed_lib, self.headers_feed_lib),
                       (sheet_feeds, self.headers_feed_scenario),
                       (sheet_scenario, self.headers_scenario),
-                      (sheet_batch, self.headers_batch)]
+                      (sheet_batch, self.headers_batch),
+                      (sheet_lca, self.headers_lca_scenario),
+                      (sheet_lca_lib, self.headers_lca_lib)
+                      ]
 
         try:
             for sheet in check_list:
-                if sheet[0]['headers'] != [x for x in sheet[1]]:
-                    raise IOError(sheet[0]['name'])
+                sh_dict: dict = sheet[0]
+                if sh_dict['headers'] != [x for x in sheet[1]]:
+                    raise IOError(sh_dict['name'])
         except IOError as e:
             logging.error("Headers in config.py don't match header in Excel file:{}".format(e.args))
             # DO NOT DELETE - 20/10/2020
@@ -304,8 +345,6 @@ class Data:
 
     @staticmethod
     def get_series_from_batch(batch, col_name, period):
-        # TODO: filtrar pela coluna 'id col'
-        # TODO: do all possible checks (e.g. period[1] > period[0] etc)
         return batch[col_name].loc[period[0]:period[1]]
 
     @staticmethod
@@ -319,7 +358,6 @@ class Data:
                 else:
                     return data_frame.mask(col_name, int(val))
             except TypeError:
-                # TODO I didn't check, maybe the exception treated is wrong
                 return data_frame.mask(col_name, val)
         else:
             return data_frame.mask(col_name, val)
@@ -391,24 +429,32 @@ class Data:
         ids = list(df[col])
         ids.sort()
         mapping = dict(zip(ids, [i for i in range(len(ids))]))
-        ids = [mapping[id] for id in df[col]]
+        ids = [mapping[col_id] for col_id in df[col]]
         ids = pandas.Index(ids)
         df = df.set_index(ids).sort_index()
         return df
 
-    def sorted_column(self, dataFrame, header, base_list, base_header, return_dict=False):
-        keys = list(self.get_column_data(dataFrame, base_header))
-        vals = list(self.get_column_data(dataFrame, header))
+    def sorted_column(self, data_frame, header, base_list, base_header, return_dict=False):
+        """
+        :param data_frame:
+        :param header: Name of the column to extract data from
+        :param base_list: Some list with an specific order of return (if return_dict=False)
+        :param base_header: Column to get headers from
+        :param return_dict: if False, return list
+        :return:
+        """
+        keys = list(self.get_column_data(data_frame, base_header))
+        vals = list(self.get_column_data(data_frame, header))
         mapping = dict(zip(keys, vals))
         if return_dict:
             return mapping
         else:
             return [mapping[k] for k in base_list]
 
-    def multi_sorted_column(self, dataFrame, header, base_list, base_header, return_dict=False):
+    def multi_sorted_column(self, data_frame, header, base_list, base_header, return_dict=False):
         all_dicts = []
         for h in header:
-            all_dicts.append(self.sorted_column(dataFrame, h, base_list, base_header, return_dict))
+            all_dicts.append(self.sorted_column(data_frame, h, base_list, base_header, return_dict))
         return all_dicts
 
 
@@ -418,5 +464,7 @@ if __name__ == "__main__":
                    sheet_feed_lib="Feed Library",
                    sheet_feeds="Feeds",
                    sheet_scenario="Scenario",
-                   sheet_batch="Batch"
+                   sheet_batch="Batch",
+                   sheet_lca='LCA',
+                   sheet_lca_lib='LCA Library'
                    )
