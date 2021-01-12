@@ -84,6 +84,6 @@ INPUT_FILE = {'filename': {'name': 'input.xlsx'},
 OUTPUT_FILE = 'output.xlsx'
 SOLVER = 'cplex'
 # RNS_FEED_PARAMETERS = {}
-RNS_FEED_PARAMETERS = {'source': 'image.RData',
+RNS_FEED_PARAMETERS = {'source': 'RNS/image.RData',
                        'report_diff': False,
                        'on_error': 0}  # 0: quit; 1: report and continue with NRC; -1: silent continue
