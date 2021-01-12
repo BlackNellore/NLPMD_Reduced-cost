@@ -51,11 +51,20 @@ class Output:
 
     def save_as_csv(self, name="", solution=[]):
         """Save solution as a csv file"""
-        keys = list(solution[0].keys())
-        values = []
-        for line in solution:
-            values.append(list(line.values()))
-
+        if type(solution) is dict:
+            solution: dict = solution
+            keys = list(solution.keys())
+            values = []
+            for k, v in solution.items():
+                values.append(list(v))
+        elif type(solution) is list:
+            keys = list(solution[0].keys())
+            values = []
+            for line in solution:
+                values.append(list(line.values()))
+        else:
+            print(solution)
+            raise IndexError("something is wrong with the solution vector")
         path = self.temp_dir + name + ".csv"
 
         with open(path, "a+", newline='', encoding='utf-8') as file:

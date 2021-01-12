@@ -9,16 +9,17 @@ import logging
 INPUT = {}
 OUTPUT = None
 
+_output: Output
+
+ds: data_handler.Data
+
+data_scenario: pandas.DataFrame  # Scenario
+headers_scenario: data_handler.Data.ScenarioParameters  # Scenario
+data_batch: pandas.DataFrame  # Scenario
+headers_batch: data_handler.Data.BatchParameters  # Scenario
+
 
 class Diet:
-    _output = None
-
-    ds: data_handler.Data = None
-
-    data_scenario: pandas.DataFrame = None  # Scenario
-    headers_scenario: data_handler.Data.ScenarioParameters = None  # Scenario
-    data_batch: pandas.DataFrame = None  # Scenario
-    headers_batch: data_handler.Data.BatchParameters = None  # Scenario
 
     @staticmethod
     def initialize(msg):
@@ -33,7 +34,6 @@ class Diet:
 
     def run(self):
         logging.info("Iterating through scenarios")
-        results = {}
         for scenario in data_scenario.values:
 
             parameters = dict(zip(headers_scenario, scenario))
@@ -47,12 +47,13 @@ class Diet:
             logging.info("{}".format(parameters))
 
             logging.info("Initializing model")
-            model = model_factory(ds, parameters, parameters[headers_scenario.s_find_reduced_cost])
+            model = model_factory(ds,
+                                  parameters,
+                                  parameters[headers_scenario.s_find_reduced_cost],
+                                  parameters[headers_scenario.s_lca_id])
             logging.info("Initializing numerical methods")
             optimizer = Searcher(model, batch)
-
-            # TODO Implement Sensitivity Analysis: sensitivity.py
-
+            
             if parameters[headers_scenario.s_algorithm] == "GSS":
                 msg = "Golden-Section Search algorithm"
             elif parameters[headers_scenario.s_algorithm] == "BF":
@@ -73,7 +74,10 @@ class Diet:
                 self.__single_scenario(optimizer, parameters, lb, ub, tol)
                 self.store_results(optimizer, parameters)
             else:
-                if list(ds.filter_column(data_batch, headers_batch.s_batch_id, parameters[headers_scenario.s_batch], int64=True)[headers_batch.s_only_costs_batch])[0]:
+                if list(ds.filter_column(data_batch,
+                                         headers_batch.s_batch_id,
+                                         parameters[headers_scenario.s_batch],
+                                         int64=True)[headers_batch.s_only_costs_batch])[0]:
                     lb, ub = self.refine_bounds(optimizer, parameters, batch)
                     if lb is None:
                         continue
@@ -82,31 +86,22 @@ class Diet:
 
         _output.store()
 
-        #            logging.info("Saving solution locally")
-        #            status, solution = optimizer.get_results()
-        #            if status == Status.SOLVED:
-        #                _output.save_as_csv(name=str(parameters[headers_scenario.s_identifier]), solution=solution)
-        #            else:
-        #                logging.warning("Bad Status: {0}, {1}".format(status, parameters))
-
-        #        logging.info("Exporting solution to {}".format(OUTPUT))
-        #        _output.store_output(OUTPUT)
-
         logging.info("END")
 
     @staticmethod
-    def refine_bounds(optimizer, parameters, batch = False):
+    def refine_bounds(optimizer, parameters, batch=False):
         logging.info("Refining bounds")
         if batch:
             optimizer.set_batch_params(0)
         lb, ub = optimizer.refine_bounds(parameters[headers_scenario.s_lb],
                                          parameters[headers_scenario.s_ub],
                                          parameters[headers_scenario.s_tol],
-                                         double_refinement = True
+                                         double_refinement=True
                                          )
         if lb is None:
-            logging.warning("There is no feasible solution in the domain {0} <= CNEm <= {1}"
-                                .format(parameters[headers_scenario.s_lb], parameters[headers_scenario.s_ub]))
+            logging.warning(
+                f"There is no feasible solution in the domain {parameters[headers_scenario.s_lb]}"
+                f" <= CNEm <= {parameters[headers_scenario.s_ub]}")
             return None, None
         logging.info("Refinement completed")
         logging.info("Choosing optimization method")
@@ -118,18 +113,13 @@ class Diet:
         if parameters[headers_scenario.s_find_reduced_cost] > 0:
             optimizer.search_reduced_cost(algorithm, lb, ub, tol, parameters[headers_scenario.s_ing_level])
         else:
-            optimizer.run_scenario(algorithm, lb, ub, tol)
-
+            optimizer.run_scenario(algorithm, lb, ub, tol, parameters[headers_scenario.s_lca_id])
 
     def __multi_scenario(self, optimizer, parameters, lb, ub, tol):
         optimizer.clear_searcher(force=True)
-        algorithm = Algorithms[parameters[headers_scenario.s_algorithm]]
         batch_id = parameters[headers_scenario.s_batch]
         batch_parameters = ds.filter_column(data_batch, headers_batch.s_batch_id, batch_id, int64=True)
 
-        # batch_space = range(list(batch_parameters[headers_batch.s_initial_period])[0],
-        #                     list(batch_parameters[headers_batch.s_final_period])[0],
-        #                     1)
         batch_space = range(list(batch_parameters[headers_batch.s_final_period])[0] -
                             list(batch_parameters[headers_batch.s_initial_period])[0] + 1)
         for i in batch_space:
@@ -141,8 +131,9 @@ class Diet:
     @staticmethod
     def store_results(optimizer, parameters):
         logging.info("Saving solution locally")
-        status, solution = optimizer.get_results()
-        if status == Status.SOLVED:
+        lca_id = parameters[headers_scenario.s_lca_id]
+        status, solution = optimizer.get_sol_results(lca_id, None, False)
+        if status == Status.SOLVED or lca_id > 0:
             _output.save_as_csv(name=str(parameters[headers_scenario.s_identifier]), solution=solution)
         else:
             logging.warning("Bad Status: {0}, {1}".format(status, parameters))

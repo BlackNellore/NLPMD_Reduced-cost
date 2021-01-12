@@ -7,18 +7,18 @@ class TestNRCequations(unittest.TestCase):
     # cneg(cnem)
     # dmi(cnem, sbw)
     # mpm(sbw)
-    # nem(sbw, bcs, be, l, sex, a2)
+    # nem(sbw, bcs, be, lac, sex, a2)
     # neg(cneg, v_dmi, cnem, v_nem)
     # swg(neg, sbw)
     #
     # pe_ndf(ph_val)
     #
-    # get_all_parameters(cnem, sbw, bcs, be, l, sex, a2, ph_val)
+    # get_all_parameters(cnem, sbw, bcs, be, lac, sex, a2, ph_val)
     #
     # mp(p_dmi=0, p_tdn=0, p_cp=0, p_rup=0, p_forage=0, p_ee=0)
 
     # Test ranges
-    # [cnem, sbw, bcs, be, l, sex, a2, ph_val] = [None for i in range(8)]
+    # [cnem, sbw, bcs, be, lac, sex, a2, ph_val] = [None for i in range(8)]
     cnem_range = [-0.2 + 0.10001 * i for i in range(21)]
     sbw_range = [-50 + 50.00001 * i for i in range(21)]
     bcs_range = [i for i in range(-1, 10)]
