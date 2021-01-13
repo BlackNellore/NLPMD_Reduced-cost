@@ -105,6 +105,7 @@ class Data:
         s_NEga: str
         s_RUP: str
         s_pef: str
+        s_NPN: str
 
     # Sheet LCA Library
     class LCALib(NamedTuple):

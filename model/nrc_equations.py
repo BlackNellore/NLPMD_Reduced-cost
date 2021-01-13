@@ -53,6 +53,10 @@ class NRC_abs(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    def npn(self, *args):
+        pass
+
+    @abc.abstractmethod
     def pe_ndf(self, *args):
         pass
 
@@ -219,6 +223,14 @@ class NRC_eq:
         else:
             return self.nrc_handler.mp(*args)
 
+    def npn(self, ing_id, *args):
+        if self.outside_calc:
+            if self.diff_report:
+                self.report_diference(self.nrc_handler.mp(ing_id), self.comparison_Rdata.npn(*args), 'MP')
+            return self.nrc_handler.npn(ing_id)
+        else:
+            return args[0]
+
     def pe_ndf(self, *args):
         if self.outside_calc:
             if self.diff_report:
@@ -333,6 +345,9 @@ class NRC_eq:
 
             return protein
 
+        def npn(self, *args):
+            return args[0]
+
         @staticmethod
         def pe_ndf(ph_val):
             """Physically Effective Non-Detergent Fiber"""
@@ -387,6 +402,7 @@ class NRC_eq:
             py_feeds = pandas2ri.rpy2py_dataframe(feeds3)
             self._feed_order = list(map(int, py_feeds['FeedID'].to_list()))
             self._feed_MP = list(pandas2ri.ri2py_vector(robjects.r[f'anim.fd.MP.rate']))
+            self._feed_NPN = list(pandas2ri.ri2py_vector(robjects.r[f'anim.fd.NPN.conc']))
             self._feed_GE = list(pandas2ri.ri2py_vector(robjects.r[f'anim.fd.GE.frac']))
 
         @staticmethod
@@ -429,6 +445,15 @@ class NRC_eq:
                 co2perday = self._feed_GE[index] * 4.18  # Mcal/Kg DM => MJ/kg DM
                 co2perday *= convert  # MJ/kg DM per day ===> Kg CO2e/kg DM per day
                 return [(0.065 * co2perday), (0.033 * co2perday)]  # Output kg CO2eq/day per kg of feed
+            except ValueError as err:
+                logging.error(f'Ingredient index not found in image.Rdata file. ID = {ing_id},'
+                              f' available  IDs = {self._feed_order}')
+                raise err
+
+        def npn(self, ing_id):
+            try:
+                index = self._feed_order.index(ing_id)
+                return self._feed_NPN[index]
             except ValueError as err:
                 logging.error(f'Ingredient index not found in image.Rdata file. ID = {ing_id},'
                               f' available  IDs = {self._feed_order}')
