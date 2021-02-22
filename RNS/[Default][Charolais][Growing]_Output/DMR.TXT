@@ -1,0 +1,25 @@
+Process ID: 16436
+
+Starting DMR optimization...
+
+Optimizing DMR for ME, MP, and MAA allowable gain:
+ Procedure: 'optimize'
+ .Iter: 1, RDMI: 85.477, DMR: 9.402, O ADG: 1.600, P ADG: 1.590, O-P:  0.0097
+ .Iter: 2, RDMI: 93.948, DMR:10.334, O ADG: 1.600, P ADG: 1.810, O-P: -0.2097
+ .Iter: 3, RDMI: 80.241, DMR: 8.827, O ADG: 1.600, P ADG: 1.451, O-P:  0.1490
+ .Iter: 4, RDMI: 85.937, DMR: 9.453, O ADG: 1.600, P ADG: 1.602, O-P: -0.0024
+ .Iter: 5, RDMI: 85.843, DMR: 9.443, O ADG: 1.600, P ADG: 1.600, O-P:  0.0001
+ .Iter: 6, RDMI: 85.846, DMR: 9.443, O ADG: 1.600, P ADG: 1.600, O-P: -0.0000
+ .Iter: 7, RDMI: 85.846, DMR: 9.443, O ADG: 1.600, P ADG: 1.600, O-P: -0.0000
+ .Iter: 8, RDMI: 85.846, DMR: 9.443, O ADG: 1.600, P ADG: 1.600, O-P:  0.0000
+ .Iter: 9, RDMI: 85.846, DMR: 9.443, O ADG: 1.600, P ADG: 1.600, O-P: -0.0000
+
+$minimum
+[1] 85.84615
+
+$objective
+[1] 2.041166e-16
+
+
+Finished DMR optimization.
+

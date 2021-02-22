@@ -1,0 +1,66 @@
+﻿File: DEFAUL~1.RNS
+Date: Nov/28/2020 06:24:52
+
+*** Output from RNS for R ***
+=============================
+R version 4.0.3 (2020-10-10)
+Platform: x86_64-w64-mingw32/x64 (64-bit)
+Running under: Windows 10 x64 (build 19041)
+
+Matrix products: default
+
+locale:
+[1] LC_COLLATE=English_United Kingdom.1252  LC_CTYPE=English_United Kingdom.1252    LC_MONETARY=English_United Kingdom.1252
+[4] LC_NUMERIC=C                            LC_TIME=English_United Kingdom.1252    
+
+attached base packages:
+[1] tcltk     stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] XML_3.99-0.5
+
+loaded via a namespace (and not attached):
+[1] compiler_4.0.3 tools_4.0.3   
+
+
+File opened.
+Read 1 simulations.
+Processing the following GAS: [Default][Charolais][Growing] 
+
+Starting DMR optimization...
+
+Optimizing DMR for ME, MP, and MAA allowable gain:
+ Procedure: 'optimize'
+ .Iter: 1, RDMI: 85.477, DMR: 9.402, O ADG: 1.600, P ADG: 1.590, O-P:  0.0097
+ .Iter: 2, RDMI: 93.948, DMR:10.334, O ADG: 1.600, P ADG: 1.810, O-P: -0.2097
+ .Iter: 3, RDMI: 80.241, DMR: 8.827, O ADG: 1.600, P ADG: 1.451, O-P:  0.1490
+ .Iter: 4, RDMI: 85.937, DMR: 9.453, O ADG: 1.600, P ADG: 1.602, O-P: -0.0024
+ .Iter: 5, RDMI: 85.843, DMR: 9.443, O ADG: 1.600, P ADG: 1.600, O-P:  0.0001
+ .Iter: 6, RDMI: 85.846, DMR: 9.443, O ADG: 1.600, P ADG: 1.600, O-P: -0.0000
+ .Iter: 7, RDMI: 85.846, DMR: 9.443, O ADG: 1.600, P ADG: 1.600, O-P: -0.0000
+ .Iter: 8, RDMI: 85.846, DMR: 9.443, O ADG: 1.600, P ADG: 1.600, O-P:  0.0000
+ .Iter: 9, RDMI: 85.846, DMR: 9.443, O ADG: 1.600, P ADG: 1.600, O-P: -0.0000
+
+$minimum
+[1] 85.84615
+
+$objective
+[1] 2.041166e-16
+
+
+Finished DMR optimization.
+
+SUCCESS: The process with PID 16436 has been terminated.
+Computation started on 2020-11-28 18:23:09
+Computation finished on 2020-11-28 18:24:44
+Computation duration: 95.17 seconds
+
+End of the RNS for R script.
+Process halted.
+
+
+*** Warnings from RNS for R ***
+===============================
+Warning message:
+In regularize.values(x, y, ties, missing(ties)) :
+  collapsing to unique 'x' values

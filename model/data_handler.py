@@ -105,6 +105,31 @@ class Data:
         s_NEga: str
         s_RUP: str
         s_pef: str
+        s_NPN: str
+
+    # Sheet LCA Library
+    class LCALib(NamedTuple):
+        s_ing_id: str
+        s_name: str
+        s_LCA_phosphorus: str
+        s_LCA_renewable_fossil: str
+        s_LCA_GHG: str
+        s_LCA_acidification: str
+        s_LCA_eutrophication: str
+        s_LCA_land_competition: str
+
+    # Sheet LCA Scenario
+    class LCAScenario(NamedTuple):
+        s_ID: str
+        s_LCA_phosphorus_weight: str
+        s_LCA_renewable_fossil_weight: str
+        s_LCA_GHG_weight: str
+        s_LCA_acidification_weight: str
+        s_LCA_eutrophication_weight: str
+        s_LCA_land_competition_weight: str
+        s_Methane_Equation: str
+        s_N2O_Equation: str
+        s_Normalize: str
 
     # Sheet LCA Library
     class LCALib(NamedTuple):
