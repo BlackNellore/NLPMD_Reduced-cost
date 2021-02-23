@@ -116,7 +116,7 @@ class Diet:
             optimizer.run_scenario(algorithm, lb, ub, tol, parameters[headers_scenario.s_lca_id])
 
     def __multi_scenario(self, optimizer, parameters, lb, ub, tol):
-        optimizer.clear_searcher(force=True)
+        optimizer.clear_searcher()
         batch_id = parameters[headers_scenario.s_batch]
         batch_parameters = ds.filter_column(data_batch, headers_batch.s_batch_id, batch_id, int64=True)
 
