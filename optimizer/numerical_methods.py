@@ -367,9 +367,9 @@ class Searcher:
 
         self._model.set_special_cost(tol_cost)
         self.run_scenario(algorithm, lb, ub, tol, lca_id=-1, uncertain_bounds=False, find_red_cost=True)
-        special_id = self._model.get_special_id()
+        special_id, ing_name = self._model.get_special_id()
         sol: dict = self._get_last_solution()
-        var = sol["x{}".format(special_id)]
+        var = sol[f"x{special_id} - {ing_name}"]
         if var >= ing_level:
             self._model.set_special_cost()
             lb_cost = tol_cost

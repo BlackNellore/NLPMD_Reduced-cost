@@ -551,7 +551,7 @@ class ModelReducedCost(Model):
         return self._special_cost
 
     def get_special_id(self):
-        return self._special_id
+        return self._special_id, self.data.d_name_ing_map[self._special_id]
 
 
 class ModelLCA(Model):
