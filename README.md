@@ -118,6 +118,16 @@ batch. For example, instead of putting a value in the column 'Selling Price [US$
 NOTE: If a scenario has batch ID = -1 or blank, i.e., it is not a batch scenario, having strings in place of values 
 will raise error. So pay attention if you have multiple scenarios and not all are batch.
 
+### Orientações sobre o search_reduced_cost:
+
+Se você quiser rodar normal:
+Preencha na aba scenario, coluna find reduced cost, com -1.
+
+Se você quiser encontrar o preço de entrada:
+Preencha na aba scenario, coluna find reduced cost, com o id do ingrediente (lembre de verificar se está usando o RNS ou a planilha de feeds).
+Preencha na aba scenario, coluna ingredient level com o nível mínimo que você quer que o ingrediente entre (ex: 0.1)
+Preencha o cost na planilha feeds referente ao ingrediente em questão com um número qualquer.
+
 ## Bonus
 ### Settings
 You can change the file names and other settings in ```config.py```.
