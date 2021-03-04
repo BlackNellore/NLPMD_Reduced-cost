@@ -487,7 +487,7 @@ class Model:
 
         self._diet.p_rhs_cnem_ge = self.parameters.cnem * 0.999
         self._diet.p_rhs_cnem_le = self.parameters.cnem * 1.001
-        self._diet.p_rhs_sum_1 = 1
+        self._diet.p_rhs_sum_1 = 1.0
         self._diet.p_rhs_mp = (self.parameters.mpmr + self.parameters.mpgr) * 0.001 / self.parameters.dmi
         self._diet.p_rhs_mp_ub = 1.15 * (self.parameters.mpmr + self.parameters.mpgr) * 0.001 / self.parameters.dmi
         self._diet.p_rhs_rdp = 0.125 * self.parameters.cnem
@@ -880,14 +880,13 @@ class ModelLCA(Model):
             #     env_impact_matrix = normalized_temp
 
             # Dot product env impact matrix and weights vector
-            s = pd.Series(self._diet.v_x.get_values())
-            env_impact_matrix = pd.Series(env_impact_matrix).transpose()
-            env_impact_vector = env_impact_matrix.dot(s.array)
-            env_impact_vector = dict(zip(self.parameters.c_env_impacts_weights.keys(),
-                                         env_impact_vector.array * units_coverter))
+            s = pd.DataFrame(list(self._diet.v_x.get_values()))
+            env_impact_matrix_pandas = env_impact_matrix.T.squeeze()
+            env_impact_vector: pd.DataFrame = env_impact_matrix_pandas.dot(s)
+            env_impact_vector = env_impact_vector * units_coverter
 
-            for k, v in env_impact_vector.items():
-                sol[f"LCA emited/kg Animal - {k}"] = v
+            for index, row in env_impact_vector.iterrows():
+                sol[f"LCA emited/kg Animal - {index}"] = row[0]
             if self.parameters.v_stage is None:
                 self.parameters.v_stage = self.parameters.v_lca_weight
             sol["Env Impact weight (Multi Objective)"] = self.parameters.v_stage
