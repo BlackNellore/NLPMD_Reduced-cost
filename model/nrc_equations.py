@@ -179,7 +179,9 @@ class NRC_eq:
         if self.outside_calc:
             if self.diff_report:
                 self.report_diference(self.nrc_handler.dmi(), self.comparison_Rdata.dmi(*args), 'DMI')
-            return self.nrc_handler.dmi()
+            vals = NRC_eq.StaticHandler.dmi(*args)
+            # return self.nrc_handler.dmi()
+            return vals
         else:
             return self.nrc_handler.dmi(*args)
 
@@ -385,7 +387,7 @@ class NRC_eq:
             """
             # Convert to kg CO2eq. {1/55.65} converts MJ to kg CH4 per head.
             # {25} conevrts kg CH4 to kg CO2eq (IPCC 4th assesment, Physical Science Basis, Ch2, pg 212)
-            convert = 25 * 1 / 55.65
+            convert = 34 * 1 / 55.65
             cho = max(1 - (cp + fat + ash), 0)
             # cho2 = ndf + starch + sugars + oa
             feed_ge = (4.15 * cho + 9.4 * fat + 5.7 * cp)  # Mcal/Kg DM
@@ -414,7 +416,7 @@ class NRC_eq:
 
         @staticmethod
         def dmi():
-            return robjects.r['anim.DMR'][0]
+            return robjects.r['anim.DMI.rate_NASEM2016'][0]
 
         @staticmethod
         def mpm():
