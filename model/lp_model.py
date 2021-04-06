@@ -119,6 +119,10 @@ class Model:
         sol["obj_revenue"] = self.computed.revenue
 
         sol["MP diet"] = self._diet.c_mpm.body()
+        x_sol = [self._diet.v_x[i].value for i in self._diet.v_x]
+        sol["NPN"] = sum([list(self.data.dc_npn.values())[i] * x_sol[i] * 0.01 for i in range(len(x_sol))])
+        sol["RDP"] = sum([list(self.data.dc_rdp.values())[i] * x_sol[i] for i in range(len(x_sol))])
+
 
         is_active_constraints = []
         l_slack = {}
@@ -484,7 +488,7 @@ class Model:
         #     expr=pyo.summation(self._diet.p_model_npn, self._diet.v_x) <= self._diet.p_rhs_rdp_ub)
         self._diet.c_npn = pyo.Constraint(
             expr=pyo.summation(self._diet.p_model_npn, self._diet.v_x) * 0.01
-                 - 0.20 * pyo.summation(self._diet.p_model_rdp, self._diet.v_x) <= 0)
+                 - 0.67 * pyo.summation(self._diet.p_model_rdp, self._diet.v_x) <= 0)
         self._diet.c_mpr = pyo.Constraint(
             expr=pyo.summation(self._diet.p_model_mp, self._diet.v_x) <= self._diet.p_rhs_mp_ub)
 
