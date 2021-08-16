@@ -1,3 +1,10 @@
+OUTPUT_FILE = 'output.xlsx'
+SOLVER = 'cplex'
+# RNS_FEED_PARAMETERS = {}
+RNS_FEED_PARAMETERS = {'source': None,
+                       'report_diff': False,
+                       'on_error': 0}  # 0: quit; 1: report and continue with NRC; -1: silent continue
+
 INPUT_FILE = {'filename': {'name': 'input.xlsx'},
               'sheet_feed_lib': {'name': 'Feed Library',
                                  'headers': [
@@ -82,9 +89,4 @@ INPUT_FILE = {'filename': {'name': 'input.xlsx'},
                                             'LCA_Land competition CML non baseline (m2a)']}
 
               }
-OUTPUT_FILE = 'output.xlsx'
-SOLVER = 'cplex'
-# RNS_FEED_PARAMETERS = {}
-RNS_FEED_PARAMETERS = {'source': 'RNS/image.RData',
-                       'report_diff': False,
-                       'on_error': 0}  # 0: quit; 1: report and continue with NRC; -1: silent continue
+

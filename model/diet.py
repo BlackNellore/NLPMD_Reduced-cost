@@ -5,6 +5,7 @@ from model.output_handler import Output
 from model.lp_model import model_factory
 from optimizer.numerical_methods import Searcher, Status, Algorithms
 import logging
+from tqdm import tqdm
 
 INPUT = {}
 OUTPUT = None
@@ -34,7 +35,9 @@ class Diet:
 
     def run(self):
         logging.info("Iterating through scenarios")
-        for scenario in data_scenario.values:
+        run_scenarios = ds.data_scenario[ds.data_scenario[ds.headers_scenario.s_id] > 0]
+
+        for scenario in tqdm(run_scenarios.values, total=run_scenarios.shape[0], desc="Running Scenarios"):
 
             parameters = dict(zip(headers_scenario, scenario))
             if parameters[headers_scenario.s_id] < 0:
@@ -122,7 +125,7 @@ class Diet:
 
         batch_space = range(list(batch_parameters[headers_batch.s_final_period])[0] -
                             list(batch_parameters[headers_batch.s_initial_period])[0] + 1)
-        for i in batch_space:
+        for i in tqdm(batch_space, total=len(batch_space), desc="Running batch"):
             optimizer.set_batch_params(i)
             self.__single_scenario(optimizer, parameters, lb, ub, tol)
             self.store_results(optimizer, parameters)
