@@ -213,6 +213,7 @@ class Data:
         # Sheet Scenario
         self.data_scenario = pandas.read_excel(excel_file, sheet_scenario['name'])
         self.headers_scenario = self.ScenarioParameters(*(list(self.data_scenario)))
+        self.data_scenario = self.data_scenario[self.data_scenario[self.headers_scenario.s_id] > 0]
         # self.data_scenario.astype({self.headers_scenario.s_id: 'int64'}).dtypes
 
         # Sheet batch
@@ -223,15 +224,25 @@ class Data:
         # csv files
         csv_file_names = dict(zip(unwrap_list(self.data_batch.filter(items=[self.headers_batch.s_batch_id]).values),
                                   unwrap_list(self.data_batch.filter(items=[self.headers_batch.s_file_name]).values)))
-        for name in csv_file_names.values():
-            self.data_series[name] = pandas.read_csv(name, index_col=0)
 
-        # filter batch executions from data_scenario
         batch_ids = unwrap_list(self.data_batch.filter(items=[self.headers_batch.s_batch_id]).values)
+        for batch_id, name in csv_file_names.items():
+            if batch_id in self.data_scenario[self.headers_scenario.s_batch].array:
+                self.data_series[name] = pandas.read_csv(name, index_col=0)
+            else:
+                batch_ids.remove(batch_id)
+        # filter batch executions from data_scenario
+        # batch_ids = unwrap_list(self.data_batch.filter(items=[self.headers_batch.s_batch_id]).values)
+
         batch_scenarios = self.filter_column(self.data_scenario,
                                              self.headers_scenario.s_batch,
                                              batch_ids,
                                              int64=True)
+
+        aux_csv = {}
+        for i in batch_ids:
+            aux_csv[i] = csv_file_names[i]
+        csv_file_names = aux_csv
 
         # filter batch executions from data_feed_scenario
         feed_scenarios_id = unwrap_list(batch_scenarios.filter(items=[self.headers_scenario.s_feed_scenario]).values)
@@ -248,7 +259,7 @@ class Data:
         self.batchFeedScenarioCandidate = [self.headers_feed_scenario.s_min, self.headers_feed_scenario.s_max,
                                            self.headers_feed_scenario.s_feed_cost]
 
-        list_batch_id = unwrap_list(batch_scenarios.filter(items=[self.headers_scenario.s_id]).values)
+        list_batch_id = unwrap_list(batch_scenarios.filter(items=[self.headers_scenario.s_batch]).values)
 
         self.batch_map = dict(zip(list_batch_id, [None] * batch_scenarios.shape[0]))
 
