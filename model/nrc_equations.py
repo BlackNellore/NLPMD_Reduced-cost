@@ -419,6 +419,7 @@ class NRC_eq:
         _feed_order: list = None
         _model_feed_order: list = None
         _staticHandler: NRC_abs = None
+        _quick_map: dict = None
 
         def __init__(self):
             feeds3 = robjects.r['feeds3']
@@ -432,26 +433,29 @@ class NRC_eq:
             feed_CP = list(map(float, py_feeds['CP_DM'].to_list()))
             self._feed_NPN = [self._feed_NPN[i] * feed_SP[i] * feed_CP[i]/10000 for i in range(len(feed_SP))]
             self._feed_GE = list(pandas2ri.ri2py_vector(robjects.r[f'anim.fd.GE.frac']))
+            self._quick_map = {
+                'neg': robjects.r['anim.NEgr.rate'][0],
+                'dmi': robjects.r['anim.DMI.rate_NRC2000'][0],
+                'mpm': robjects.r['anim.MPmr.rate'][0],
+                'mpg':robjects.r['anim.MPgr.rate'][0],
+                'nem': robjects.r['anim.NEmr.rate'][0],
+                'pe_ndf': robjects.r['anim.peNDF_required_acidosis.rate'][0]
+            }
 
-        @staticmethod
-        def neg():
-            return robjects.r['anim.NEgr.rate'][0]
+        def neg(self):
+            return self._quick_map['neg']
 
-        @staticmethod
-        def dmi():
-            return robjects.r['anim.DMI.rate_NRC2000'][0]
+        def dmi(self):
+            return self._quick_map['dmi']
 
-        @staticmethod
-        def mpm():
-            return robjects.r['anim.MPmr.rate'][0]
+        def mpm(self):
+            return self._quick_map['mpm']
 
-        @staticmethod
-        def mpg():  # TODO Not use
-            return robjects.r['anim.MPgr.rate'][0]
+        def mpg(self):  # TODO Not use
+            return self._quick_map['mpg']
 
-        @staticmethod
-        def nem():
-            return robjects.r['anim.NEmr.rate'][0]
+        def nem(self):
+            return self._quick_map['nem']
 
         def mp(self, ing_id):
             try:
@@ -465,7 +469,7 @@ class NRC_eq:
                 raise err
 
         def pe_ndf(self):
-            return robjects.r['anim.peNDF_required_acidosis.rate'][0]
+            return self._quick_map['pe_ndf']
 
         def ch4_diet(self, fat, cp, ash, ndf, starch, sugars, oa, ing_id):
             # Convert to kg CO2eq. {1/55.65} converts MJ to kg CH4 per head. {25} conevrts kg CH4 to kg CO2eq
