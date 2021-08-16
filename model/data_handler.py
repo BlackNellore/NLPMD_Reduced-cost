@@ -259,21 +259,19 @@ class Data:
         self.batchFeedScenarioCandidate = [self.headers_feed_scenario.s_min, self.headers_feed_scenario.s_max,
                                            self.headers_feed_scenario.s_feed_cost]
 
-        list_batch_id = unwrap_list(batch_scenarios.filter(items=[self.headers_scenario.s_batch]).values)
+        list_batch_id = unwrap_list(batch_scenarios.filter(items=[self.headers_scenario.s_id]).values)
 
         self.batch_map = dict(zip(list_batch_id, [None] * batch_scenarios.shape[0]))
 
-        for batch_id in self.batch_map.keys():
-            if batch_id <= 0:
-                continue
-            self.batch_map[batch_id] = {"data_feed_scenario": {}, "data_scenario": {}}
+        for scenario_id in self.batch_map.keys():
+            self.batch_map[scenario_id] = {"data_feed_scenario": {}, "data_scenario": {}}
             batch_data_feed_scenario = {}
             row = self.filter_column(batch_scenarios,
                                      self.headers_scenario.s_id,
-                                     batch_id,
+                                     scenario_id,
                                      int64=True)
             feed_scn = list(row[self.headers_scenario.s_feed_scenario])[0]
-            batch_ids = list(row[self.headers_scenario.s_batch])[0]
+            batch_id = list(row[self.headers_scenario.s_batch])[0]
             subset_feed = self.filter_column(batch_feed_scenarios,
                                              self.headers_feed_scenario.s_feed_scenario,
                                              feed_scn,
@@ -299,7 +297,7 @@ class Data:
                             list(self.get_series_from_batch(self.data_series[batch_name],
                                                             val,
                                                             [initial, final]))
-            self.batch_map[batch_id]["data_feed_scenario"] = batch_data_feed_scenario
+            self.batch_map[scenario_id]["data_feed_scenario"] = batch_data_feed_scenario
 
             batch_data_scenario = {}
             for h_scn in self.batchScenarioCandidate:
@@ -320,7 +318,7 @@ class Data:
                             list(self.get_series_from_batch(self.data_series[batch_name],
                                                             val,
                                                             [initial, final]))
-            self.batch_map[batch_id]["data_scenario"] = batch_data_scenario
+            self.batch_map[scenario_id]["data_scenario"] = batch_data_scenario
 
         # LCA Sheet
         self.data_lca_scenario = pandas.read_excel(excel_file, sheet_lca['name'])

@@ -342,7 +342,7 @@ class Model:
                                     f" batch {parameters.p_batch}, feed_scenario{parameters.p_feed_scenario}")
                     batch_feed_scenario = {}
                 try:
-                    batch_scenario = self.ds.batch_map[parameters.p_id]["data_scenario"][parameters.p_id]
+                    batch_scenario = self.ds.batch_map[parameters.p_id]["data_scenario"][parameters.p_batch]
                 except KeyError:
                     logging.warning(f"No Scenario batch for scenario {parameters.p_id},"
                                     f" batch {parameters.p_batch}, scenario{parameters.p_feed_scenario}")
