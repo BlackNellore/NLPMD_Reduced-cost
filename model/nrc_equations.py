@@ -420,6 +420,7 @@ class NRC_eq:
         _model_feed_order: list = None
         _staticHandler: NRC_abs = None
         _quick_map: dict = None
+        _ing_map: dict = None
 
         def __init__(self):
             feeds3 = robjects.r['feeds3']
@@ -441,6 +442,7 @@ class NRC_eq:
                 'nem': robjects.r['anim.NEmr.rate'][0],
                 'pe_ndf': robjects.r['anim.peNDF_required_acidosis.rate'][0]
             }
+            self._ing_map = dict(zip(self._feed_order, list(range(len(self._feed_order)))))
 
         def neg(self):
             return self._quick_map['neg']
@@ -459,7 +461,7 @@ class NRC_eq:
 
         def mp(self, ing_id):
             try:
-                index = self._feed_order.index(ing_id)
+                index = self._ing_map[ing_id]
                 # return self._feed_MP[index]
                 return self._feed_aTDN[index] * 0.13 * 0.8 * 0.8 * 0.01 \
                        + 0.8 * self._feed_RUP[index] * 0.01 * 1.682 / self.dmi()
@@ -475,7 +477,7 @@ class NRC_eq:
             # Convert to kg CO2eq. {1/55.65} converts MJ to kg CH4 per head. {25} conevrts kg CH4 to kg CO2eq
             convert = 25 * 1 / 55.65
             try:
-                index = self._feed_order.index(ing_id)
+                index = self._ing_map[ing_id]
                 co2perday = self._feed_GE[index] * 4.18  # Mcal/Kg DM => MJ/kg DM
                 co2perday *= convert  # MJ/kg DM per day ===> Kg CO2e/kg DM per day
                 return [(0.065 * co2perday), (0.033 * co2perday)]  # Output kg CO2eq/day per kg of feed
@@ -486,7 +488,7 @@ class NRC_eq:
 
         def npn(self, ing_id):
             try:
-                index = self._feed_order.index(ing_id)
+                index = self._ing_map[ing_id]
                 return self._feed_NPN[index]
             except ValueError as err:
                 logging.error(f'Ingredient index not found in image.Rdata file. ID = {ing_id},'
@@ -495,7 +497,7 @@ class NRC_eq:
 
         def ttdn(self, ing_id):
             try:
-                index = self._feed_order.index(ing_id)
+                index = self._ing_map[ing_id]
                 return self._feed_tTDN[index] / 100
             except ValueError as err:
                 logging.error(f'Ingredient index not found in image.Rdata file. ID = {ing_id},'
