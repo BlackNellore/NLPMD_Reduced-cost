@@ -6,6 +6,7 @@ from model.lp_model import model_factory
 from optimizer.numerical_methods import Searcher, Status, Algorithms
 import logging
 from tqdm import tqdm
+from datetime import datetime
 
 INPUT = {}
 OUTPUT = None
@@ -36,6 +37,12 @@ class Diet:
     def run(self):
         logging.info("Iterating through scenarios")
         run_scenarios = ds.data_scenario[ds.data_scenario[ds.headers_scenario.s_id] > 0]
+        safe_save = False
+        safe_name = ''
+        if run_scenarios.shape[0] >= 5:
+            safe_save = True
+            now = datetime.now()
+            safe_name = now.strftime("%Y_%m_%d_%H%M%S")
 
         for scenario in tqdm(run_scenarios.values, total=run_scenarios.shape[0], desc="Running Scenarios"):
 
@@ -87,7 +94,11 @@ class Diet:
                 logging.info(f"Optimizing with multiobjective epsilon-constrained based on {msg}")
                 self.__multi_scenario(optimizer, parameters, lb, ub, tol)
 
-        _output.store()
+            if safe_save:
+                _output.store(safe_name)
+
+        if not safe_save:
+            _output.store(None)
 
         logging.info("END")
 

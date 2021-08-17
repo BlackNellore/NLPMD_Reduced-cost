@@ -23,7 +23,7 @@ class Output:
         for f in files:
             os.remove(directory + f)
 
-    def store(self):
+    def store(self, f_name):
 
         # create a new folder in /Output/ and name it YYYY_MM_DD_HHMMSS
         dirName = './Output/'
@@ -31,8 +31,11 @@ class Output:
         if not os.path.exists(dirName):
             os.mkdir(dirName)
 
-        now = datetime.now()
-        now = now.strftime("%Y_%m_%d_%H%M%S")
+        if f_name is None:
+            now = datetime.now()
+            now = now.strftime("%Y_%m_%d_%H%M%S")
+        else:
+            now = f_name
         dirName = dirName + now
 
         try:
@@ -41,7 +44,10 @@ class Output:
             print("Directory ", dirName, " already exists.")
 
         # copy input
-        shutil.copy('./Input.xlsx', dirName)
+        try:
+            shutil.copy('./Input.xlsx', dirName)
+        except:
+            pass
 
         files = [f for f in os.listdir(self.temp_dir) if os.path.isfile(os.path.join(self.temp_dir, f))]
 
